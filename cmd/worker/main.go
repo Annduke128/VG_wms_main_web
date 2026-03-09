@@ -1,0 +1,102 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"log"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/joho/godotenv"
+
+	"wms-v1/internal/domain"
+	"wms-v1/internal/queue"
+	"wms-v1/internal/repo"
+	"wms-v1/internal/service"
+)
+
+func main() {
+	_ = godotenv.Load()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pg, err := repo.NewPostgresRepo(ctx)
+	if err != nil {
+		log.Fatalf("postgres: %v", err)
+	}
+	defer pg.Close()
+
+	rq, err := queue.NewRedisQueue()
+	if err != nil {
+		log.Fatalf("redis: %v", err)
+	}
+	defer rq.Close()
+
+	impService := service.NewImportService(pg, rq)
+
+	log.Println("Worker started, waiting for jobs...")
+
+	// Handle shutdown
+	go func() {
+		quit := make(chan os.Signal, 1)
+		signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+		<-quit
+		log.Println("Worker shutting down...")
+		cancel()
+	}()
+
+	// Process import queue
+	go processQueue(ctx, rq, queue.QueueImport, func(job queue.Job) error {
+		var payload service.ImportPayload
+		if err := json.Unmarshal(job.Payload, &payload); err != nil {
+			return err
+		}
+		return impService.ProcessImport(ctx, payload)
+	})
+
+	// Process bulk update queue
+	go processQueue(ctx, rq, queue.QueueBulkUpdate, func(job queue.Job) error {
+		var req domain.BulkUpdateRequest
+		if err := json.Unmarshal(job.Payload, &req); err != nil {
+			return err
+		}
+		for _, item := range req.Updates {
+			if err := pg.UpdateInventoryItem(ctx, item.MaHang, item.Fields); err != nil {
+				log.Printf("bulk update error for %s: %v", item.MaHang, err)
+			}
+		}
+		// Update job status
+		pg.UpdateAsyncJob(ctx, job.ID, "completed", "{}", "")
+		return nil
+	})
+
+	<-ctx.Done()
+	log.Println("Worker stopped")
+}
+
+func processQueue(ctx context.Context, rq *queue.RedisQueue, queueName string, handler func(queue.Job) error) {
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			job, err := rq.Dequeue(ctx, queueName)
+			if err != nil {
+				if ctx.Err() != nil {
+					return
+				}
+				log.Printf("dequeue error from %s: %v", queueName, err)
+				continue
+			}
+
+			log.Printf("Processing job %s from %s", job.ID, queueName)
+			if err := handler(*job); err != nil {
+				log.Printf("job %s failed: %v", job.ID, err)
+			} else {
+				log.Printf("job %s completed", job.ID)
+			}
+		}
+	}
+}

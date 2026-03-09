@@ -1,0 +1,11 @@
+DROP TABLE IF EXISTS async_jobs;
+DROP TABLE IF EXISTS kanban_outbound;
+DROP TABLE IF EXISTS kanban_inbound;
+DROP TABLE IF EXISTS import_batches;
+DROP TABLE IF EXISTS rule_config;
+DROP TABLE IF EXISTS kanban_events;
+DROP TABLE IF EXISTS inventory_movements;
+DROP TABLE IF EXISTS outbound_items;
+DROP TABLE IF EXISTS inbound_items;
+DROP TABLE IF EXISTS inventory_main;
+DROP TABLE IF EXISTS products;

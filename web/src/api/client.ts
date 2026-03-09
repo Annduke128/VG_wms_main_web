@@ -1,0 +1,63 @@
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+
+async function request<T>(path: string, options?: RequestInit): Promise<T> {
+	const res = await fetch(`${API_BASE}${path}`, {
+		headers: { "Content-Type": "application/json" },
+		...options,
+	});
+	if (!res.ok) {
+		const err = await res.json().catch(() => ({ error: res.statusText }));
+		throw new Error(err.error || "Request failed");
+	}
+	return res.json();
+}
+
+export const api = {
+	// Inventory
+	inventoryGrid: (body: unknown) =>
+		request("/inventory/grid", { method: "POST", body: JSON.stringify(body) }),
+
+	updateInventory: (maHang: string, fields: Record<string, unknown>) =>
+		request(`/inventory/${encodeURIComponent(maHang)}`, {
+			method: "PATCH",
+			body: JSON.stringify(fields),
+		}),
+
+	bulkUpdate: (body: unknown) =>
+		request("/inventory/bulk-update", {
+			method: "POST",
+			body: JSON.stringify(body),
+		}),
+
+	getJob: (jobId: string) => request(`/jobs/${jobId}`),
+
+	// Kanban Inbound
+	listKanbanInbound: () => request("/kanban/inbound"),
+	createKanbanInbound: (body: unknown) =>
+		request("/kanban/inbound", { method: "POST", body: JSON.stringify(body) }),
+	moveKanbanInbound: (id: number, body: unknown) =>
+		request(`/kanban/inbound/${id}/move`, {
+			method: "POST",
+			body: JSON.stringify(body),
+		}),
+
+	// Kanban Outbound
+	listKanbanOutbound: () => request("/kanban/outbound"),
+	createKanbanOutbound: (body: unknown) =>
+		request("/kanban/outbound", { method: "POST", body: JSON.stringify(body) }),
+	moveKanbanOutbound: (id: number, body: unknown) =>
+		request(`/kanban/outbound/${id}/move`, {
+			method: "POST",
+			body: JSON.stringify(body),
+		}),
+
+	// Import
+	importFile: (type: string, file: File) => {
+		const form = new FormData();
+		form.append("file", file);
+		return fetch(`${API_BASE}/import/${type}`, {
+			method: "POST",
+			body: form,
+		}).then((r) => r.json());
+	},
+};
