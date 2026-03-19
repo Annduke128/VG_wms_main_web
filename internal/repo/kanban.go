@@ -89,8 +89,7 @@ func (r *PostgresRepo) MoveKanbanInbound(ctx context.Context, id int64, toStage 
 		// Insert inbound_items record
 		_, err = tx.Exec(ctx,
 			`INSERT INTO inbound_items (ma_hang, ten_san_pham, so_luong, ngay_nhan_hang)
-			 VALUES ($1, $2, $3, $4)`
-			,
+			 VALUES ($1, $2, $3, $4)`,
 			card.MaHang, card.TenSanPham, card.SoLuong, now)
 		if err != nil {
 			return fmt.Errorf("insert inbound item: %w", err)
@@ -200,8 +199,7 @@ func (r *PostgresRepo) MoveKanbanOutbound(ctx context.Context, id int64, toStage
 		// Insert outbound_items record
 		_, err = tx.Exec(ctx,
 			`INSERT INTO outbound_items (ma_hang, ten_san_pham, so_luong, ngay_nhan_hang)
-			 VALUES ($1, $2, $3, $4)`
-			,
+			 VALUES ($1, $2, $3, $4)`,
 			card.MaHang, card.TenSanPham, card.SoLuong, now)
 		if err != nil {
 			return false, fmt.Errorf("insert outbound item: %w", err)

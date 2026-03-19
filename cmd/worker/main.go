@@ -48,7 +48,7 @@ func main() {
 	}()
 
 	// Process import queue
-	go processQueue(ctx, rq, queue.QueueImport, func(job queue.Job) error {
+	go processQueue(ctx, rq, pg, queue.QueueImport, func(job queue.Job) error {
 		var payload service.ImportPayload
 		if err := json.Unmarshal(job.Payload, &payload); err != nil {
 			return err
@@ -57,7 +57,7 @@ func main() {
 	})
 
 	// Process bulk update queue
-	go processQueue(ctx, rq, queue.QueueBulkUpdate, func(job queue.Job) error {
+	go processQueue(ctx, rq, pg, queue.QueueBulkUpdate, func(job queue.Job) error {
 		var req domain.BulkUpdateRequest
 		if err := json.Unmarshal(job.Payload, &req); err != nil {
 			return err
@@ -67,8 +67,6 @@ func main() {
 				log.Printf("bulk update error for %s: %v", item.MaHang, err)
 			}
 		}
-		// Update job status
-		pg.UpdateAsyncJob(ctx, job.ID, "completed", "{}", "")
 		return nil
 	})
 
@@ -76,7 +74,7 @@ func main() {
 	log.Println("Worker stopped")
 }
 
-func processQueue(ctx context.Context, rq *queue.RedisQueue, queueName string, handler func(queue.Job) error) {
+func processQueue(ctx context.Context, rq *queue.RedisQueue, pg *repo.PostgresRepo, queueName string, handler func(queue.Job) error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -94,8 +92,10 @@ func processQueue(ctx context.Context, rq *queue.RedisQueue, queueName string, h
 			log.Printf("Processing job %s from %s", job.ID, queueName)
 			if err := handler(*job); err != nil {
 				log.Printf("job %s failed: %v", job.ID, err)
+				pg.UpdateAsyncJob(ctx, job.ID, "failed", "{}", err.Error())
 			} else {
 				log.Printf("job %s completed", job.ID)
+				pg.UpdateAsyncJob(ctx, job.ID, "completed", "{}", "")
 			}
 		}
 	}

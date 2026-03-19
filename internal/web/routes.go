@@ -1,45 +1,82 @@
 package web
 
 import (
-	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/logger"
-	"github.com/gofiber/fiber/v2/middleware/recover"
+	"net/http"
+	"os"
+	"path/filepath"
+
+	"github.com/gin-contrib/cors"
+	"github.com/gin-gonic/gin"
 )
 
-func SetupRoutes(app *fiber.App, h *Handlers) {
-	// Middleware
-	app.Use(recover.New())
-	app.Use(logger.New())
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "Content-Type, Authorization",
-		AllowMethods: "GET, POST, PATCH, DELETE, OPTIONS",
+func SetupRoutes(h *Handlers) *gin.Engine {
+	r := gin.Default() // includes Logger + Recovery middleware
+
+	// CORS
+	r.Use(cors.New(cors.Config{
+		AllowAllOrigins: true,
+		AllowHeaders:    []string{"Content-Type", "Authorization"},
+		AllowMethods:    []string{"GET", "POST", "PATCH", "DELETE", "OPTIONS"},
 	}))
 
-	api := app.Group("/api")
+	// Health check
+	r.GET("/health", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok"})
+	})
+
+	api := r.Group("/api")
 
 	// Inventory
-	api.Post("/inventory/grid", h.InventoryGrid)
-	api.Patch("/inventory/:ma_hang", h.UpdateInventoryItem)
-	api.Post("/inventory/bulk-update", h.BulkUpdateInventory)
+	api.POST("/inventory/grid", h.InventoryGrid)
+	api.PATCH("/inventory/:ma_hang", h.UpdateInventoryItem)
+	api.POST("/inventory/bulk-update", h.BulkUpdateInventory)
 
 	// Jobs
-	api.Get("/jobs/:id", h.GetJob)
+	api.GET("/jobs/:id", h.GetJob)
 
 	// Kanban Inbound
-	api.Get("/kanban/inbound", h.ListKanbanInbound)
-	api.Post("/kanban/inbound", h.CreateKanbanInbound)
-	api.Post("/kanban/inbound/:id/move", h.MoveKanbanInbound)
+	api.GET("/kanban/inbound", h.ListKanbanInbound)
+	api.POST("/kanban/inbound", h.CreateKanbanInbound)
+	api.POST("/kanban/inbound/:id/move", h.MoveKanbanInbound)
 
 	// Kanban Outbound
-	api.Get("/kanban/outbound", h.ListKanbanOutbound)
-	api.Post("/kanban/outbound", h.CreateKanbanOutbound)
-	api.Post("/kanban/outbound/:id/move", h.MoveKanbanOutbound)
+	api.GET("/kanban/outbound", h.ListKanbanOutbound)
+	api.POST("/kanban/outbound", h.CreateKanbanOutbound)
+	api.POST("/kanban/outbound/:id/move", h.MoveKanbanOutbound)
 
 	// Import
-	api.Post("/import/products", h.ImportFile("products"))
-	api.Post("/import/inventory", h.ImportFile("inventory"))
-	api.Post("/import/inbound", h.ImportFile("inbound"))
-	api.Post("/import/outbound", h.ImportFile("outbound"))
+	api.POST("/import/products", h.ImportFile("products"))
+	api.POST("/import/inventory", h.ImportFile("inventory"))
+	api.POST("/import/inbound", h.ImportFile("inbound"))
+	api.POST("/import/outbound", h.ImportFile("outbound"))
+
+	// Dashboard
+	api.GET("/dashboard/summary", h.DashboardSummary)
+	api.GET("/dashboard/charts", h.DashboardCharts)
+
+	// Inventory extras
+	api.GET("/inventory/lots", h.InventoryLots)
+	api.GET("/inventory/alerts", h.InventoryAlerts)
+
+	// Orders
+	api.GET("/orders", h.ListOrders)
+	api.POST("/orders", h.CreateOrder)
+
+	// Thresholds
+	api.GET("/thresholds", h.GetThresholds)
+	api.POST("/thresholds", h.SaveThreshold)
+
+	// Serve static frontend (production)
+	staticDir := os.Getenv("STATIC_DIR")
+	if staticDir == "" {
+		staticDir = "web/dist"
+	}
+	if info, err := os.Stat(staticDir); err == nil && info.IsDir() {
+		r.StaticFS("/assets", http.Dir(filepath.Join(staticDir, "assets")))
+		r.NoRoute(func(c *gin.Context) {
+			c.File(filepath.Join(staticDir, "index.html"))
+		})
+	}
+
+	return r
 }
