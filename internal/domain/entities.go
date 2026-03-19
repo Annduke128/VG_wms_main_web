@@ -47,10 +47,52 @@ type InboundItem struct {
 	LaiGop        float64   `json:"lai_gop" db:"lai_gop"`
 	TiLeLaiGop    float64   `json:"ti_le_lai_gop" db:"ti_le_lai_gop"`
 	NgayNhanHang  time.Time `json:"ngay_nhan_hang" db:"ngay_nhan_hang"`
+	BatchCode     string    `json:"batch_code" db:"batch_code"`
 }
 
-// OutboundItem has same structure as InboundItem
-type OutboundItem = InboundItem
+type OutboundItem struct {
+	ID            int64     `json:"id" db:"id"`
+	MaHang        string    `json:"ma_hang" db:"ma_hang"`
+	TenSanPham    string    `json:"ten_san_pham" db:"ten_san_pham"`
+	DonViTinh     string    `json:"don_vi_tinh" db:"don_vi_tinh"`
+	QuyCach       string    `json:"quy_cach" db:"quy_cach"`
+	SoLuong       float64   `json:"so_luong" db:"so_luong"`
+	DoanhSo       float64   `json:"doanh_so" db:"doanh_so"`
+	ChietKhau     float64   `json:"chiet_khau" db:"chiet_khau"`
+	SoLuongTraLai float64   `json:"so_luong_tra_lai" db:"so_luong_tra_lai"`
+	DoanhThu      float64   `json:"doanh_thu" db:"doanh_thu"`
+	Von           float64   `json:"von" db:"von"`
+	LaiGop        float64   `json:"lai_gop" db:"lai_gop"`
+	TiLeLaiGop    float64   `json:"ti_le_lai_gop" db:"ti_le_lai_gop"`
+	NgayNhanHang  time.Time `json:"ngay_nhan_hang" db:"ngay_nhan_hang"`
+	BatchCode     string    `json:"batch_code" db:"batch_code"`
+}
+
+// InventoryLot tracks FIFO batch quantities
+type InventoryLot struct {
+	ID           int64     `json:"id" db:"id"`
+	MaHang       string    `json:"ma_hang" db:"ma_hang"`
+	BatchCode    string    `json:"batch_code" db:"batch_code"`
+	ReceivedAt   time.Time `json:"received_at" db:"received_at"`
+	QtyIn        float64   `json:"qty_in" db:"qty_in"`
+	QtyOut       float64   `json:"qty_out" db:"qty_out"`
+	QtyRemaining float64   `json:"qty_remaining" db:"qty_remaining"`
+	CreatedAt    time.Time `json:"created_at" db:"created_at"`
+}
+
+// InventoryThreshold stores threshold config with version history
+type InventoryThreshold struct {
+	ID            int64      `json:"id" db:"id"`
+	MaHang        string     `json:"ma_hang" db:"ma_hang"`
+	MinQty        float64    `json:"min_qty" db:"min_qty"`
+	OptimalQty    float64    `json:"optimal_qty" db:"optimal_qty"`
+	MaxAgeDays    int        `json:"max_age_days" db:"max_age_days"`
+	Source        string     `json:"source" db:"source"`
+	ModelVersion  string     `json:"model_version" db:"model_version"`
+	EffectiveFrom time.Time  `json:"effective_from" db:"effective_from"`
+	EffectiveTo   *time.Time `json:"effective_to" db:"effective_to"`
+	CreatedAt     time.Time  `json:"created_at" db:"created_at"`
+}
 
 type InventoryMovement struct {
 	MovementID   int64     `json:"movement_id" db:"movement_id"`
