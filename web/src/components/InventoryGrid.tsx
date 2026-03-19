@@ -173,12 +173,20 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 					marginBottom: 8,
 					display: "flex",
 					alignItems: "center",
-					gap: 12,
+					gap: 10,
 				}}
 			>
-				<h2 style={{ margin: 0, fontSize: 20 }}>Kho hàng</h2>
-				{loading && <span style={{ color: "#888" }}>Loading...</span>}
-				<span style={{ color: "#888" }}>{totalRows.toLocaleString()} rows</span>
+				<h2
+					style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#1e2330" }}
+				>
+					Kho hàng
+				</h2>
+				{loading && (
+					<span style={{ color: "#7a7f8e", fontSize: 12 }}>Loading...</span>
+				)}
+				<span style={{ color: "#7a7f8e", fontSize: 12 }}>
+					{totalRows.toLocaleString()} rows
+				</span>
 			</div>
 			<DataEditor
 				columns={columns}

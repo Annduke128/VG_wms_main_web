@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ThresholdEntry } from "../types/dashboard";
+import type { AsyncJob } from "../types/grid";
 
 export function Settings() {
 	const [maHang, setMaHang] = useState("");
@@ -18,6 +19,11 @@ export function Settings() {
 	const [effectiveTo, setEffectiveTo] = useState("");
 	const [submitting, setSubmitting] = useState(false);
 	const [result, setResult] = useState<string | null>(null);
+
+	// Import state
+	const [uploading, setUploading] = useState(false);
+	const [importJob, setImportJob] = useState<AsyncJob | null>(null);
+	const fileRef = useRef<HTMLInputElement | null>(null);
 
 	const fetchHistory = useCallback(async (sku: string) => {
 		if (!sku) {
@@ -62,13 +68,12 @@ export function Settings() {
 					: new Date().toISOString(),
 				effective_to: effectiveTo ? new Date(effectiveTo).toISOString() : null,
 			});
-			setResult("Lưu threshold thành công!");
+			setResult("Lưu thành công");
 			setFormMaHang("");
 			setMinQty("");
 			setOptimalQty("");
 			setMaxAgeDays("");
 			setEffectiveTo("");
-			// Refresh history if viewing same SKU
 			if (maHang === formMaHang) fetchHistory(maHang);
 		} catch (err) {
 			setResult(`Lỗi: ${err instanceof Error ? err.message : "Unknown"}`);
@@ -77,30 +82,181 @@ export function Settings() {
 		}
 	};
 
+	// --- Import handlers ---
+
+	const handleUpload = useCallback(async () => {
+		const input = fileRef.current;
+		if (!input?.files?.[0]) {
+			alert("Chọn file trước khi upload");
+			return;
+		}
+
+		setUploading(true);
+		setImportJob(null);
+		try {
+			const res = (await api.importFile("inventory", input.files[0])) as {
+				job_id: string;
+			};
+			pollJob(res.job_id);
+		} catch (err) {
+			alert(
+				`Upload thất bại: ${err instanceof Error ? err.message : "Unknown"}`,
+			);
+		} finally {
+			setUploading(false);
+		}
+	}, []);
+
+	const pollJob = useCallback((jobId: string) => {
+		const poll = async () => {
+			try {
+				const job = (await api.getJob(jobId)) as AsyncJob;
+				setImportJob(job);
+				if (job.status === "pending" || job.status === "running") {
+					setTimeout(poll, 1000);
+				}
+			} catch {
+				console.error("Poll error");
+			}
+		};
+		poll();
+	}, []);
+
 	return (
 		<div>
-			<h2 style={{ margin: "0 0 20px", fontSize: 20 }}>Cài đặt ngưỡng</h2>
+			<h2
+				style={{
+					margin: "0 0 20px",
+					fontSize: 16,
+					fontWeight: 600,
+					color: "#1e2330",
+				}}
+			>
+				Cài đặt
+			</h2>
 
-			{/* Form */}
+			{/* --- Import Inventory Section --- */}
+			<div
+				style={{
+					background: "#fff",
+					borderRadius: 8,
+					padding: 20,
+					border: "1px solid #e8eaed",
+					marginBottom: 20,
+				}}
+			>
+				<h3
+					style={{
+						margin: "0 0 12px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Import kho (inventory)
+				</h3>
+				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
+					Upload file .xlsx (10 cột: ma_hang, ten_san_pham, so_ton, so_nhap,
+					so_xuat, tien_ton, tien_nhap, tien_xuat, so_ngay_ton,
+					luong_ban_binh_quan_ngay). Dữ liệu sẽ được upsert (thêm mới hoặc cập
+					nhật).
+				</p>
+				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+					<input
+						ref={(el) => {
+							fileRef.current = el;
+						}}
+						type="file"
+						accept=".xlsx"
+						style={{ fontSize: 12 }}
+					/>
+					<button
+						onClick={handleUpload}
+						disabled={uploading}
+						style={{
+							padding: "7px 16px",
+							background: "#3a3f4b",
+							color: "#fff",
+							border: "none",
+							borderRadius: 5,
+							cursor: uploading ? "not-allowed" : "pointer",
+							fontSize: 12,
+							fontWeight: 500,
+						}}
+					>
+						{uploading ? "Đang upload..." : "Upload"}
+					</button>
+				</div>
+
+				{importJob && (
+					<div
+						style={{
+							marginTop: 12,
+							padding: "10px 14px",
+							background: "#fafbfc",
+							borderRadius: 5,
+							border: "1px solid #e8eaed",
+							fontSize: 12,
+						}}
+					>
+						<span style={{ color: "#7a7f8e" }}>Trạng thái: </span>
+						<span
+							style={{
+								fontWeight: 600,
+								color:
+									importJob.status === "completed"
+										? "#3a7d4f"
+										: importJob.status === "failed"
+											? "#b83b3b"
+											: "#7a7f8e",
+							}}
+						>
+							{importJob.status === "completed"
+								? "Hoàn tất"
+								: importJob.status === "failed"
+									? "Thất bại"
+									: importJob.status === "running"
+										? "Đang xử lý..."
+										: "Đang chờ..."}
+						</span>
+						{importJob.error && (
+							<span style={{ color: "#b83b3b", marginLeft: 8 }}>
+								{importJob.error}
+							</span>
+						)}
+					</div>
+				)}
+			</div>
+
+			{/* --- Threshold Form --- */}
 			<form
 				onSubmit={handleSubmit}
 				style={{
 					background: "#fff",
-					borderRadius: 10,
-					padding: 24,
-					boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-					marginBottom: 24,
+					borderRadius: 8,
+					padding: 20,
+					border: "1px solid #e8eaed",
+					marginBottom: 20,
 				}}
 			>
-				<h3 style={{ margin: "0 0 16px", fontSize: 15 }}>Nhập threshold mới</h3>
+				<h3
+					style={{
+						margin: "0 0 14px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Nhập ngưỡng mới
+				</h3>
 				<div
 					style={{
 						display: "grid",
 						gridTemplateColumns: "repeat(3, 1fr)",
-						gap: 16,
+						gap: 14,
 					}}
 				>
-					<Field label="Mã hàng (barcode)" required>
+					<Field label="Mã hàng" required>
 						<input
 							value={formMaHang}
 							onChange={(e) => setFormMaHang(e.target.value)}
@@ -109,7 +265,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Min qty (thiếu hàng khi < giá trị này)" required>
+					<Field label="Min qty" required>
 						<input
 							type="number"
 							value={minQty}
@@ -121,7 +277,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Optimal qty (tối ưu)" required>
+					<Field label="Optimal qty" required>
 						<input
 							type="number"
 							value={optimalQty}
@@ -133,7 +289,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Max age days (tồn lâu khi >= ngày này)" required>
+					<Field label="Max age (ngày)" required>
 						<input
 							type="number"
 							value={maxAgeDays}
@@ -153,7 +309,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Hiệu lực đến (trống = vô thời hạn)">
+					<Field label="Hiệu lực đến">
 						<input
 							type="date"
 							value={effectiveTo}
@@ -165,33 +321,33 @@ export function Settings() {
 
 				<div
 					style={{
-						marginTop: 16,
+						marginTop: 14,
 						display: "flex",
 						alignItems: "center",
-						gap: 12,
+						gap: 10,
 					}}
 				>
 					<button
 						type="submit"
 						disabled={submitting}
 						style={{
-							padding: "10px 24px",
-							background: "#1976d2",
+							padding: "7px 18px",
+							background: "#3a3f4b",
 							color: "#fff",
 							border: "none",
-							borderRadius: 6,
+							borderRadius: 5,
 							cursor: submitting ? "not-allowed" : "pointer",
-							fontSize: 14,
-							fontWeight: 600,
+							fontSize: 12,
+							fontWeight: 500,
 						}}
 					>
-						{submitting ? "Đang lưu..." : "Lưu threshold"}
+						{submitting ? "Đang lưu..." : "Lưu"}
 					</button>
 					{result && (
 						<span
 							style={{
-								fontSize: 13,
-								color: result.startsWith("Lỗi") ? "#C62828" : "#2E7D32",
+								fontSize: 12,
+								color: result.startsWith("Lỗi") ? "#b83b3b" : "#3a7d4f",
 								fontWeight: 500,
 							}}
 						>
@@ -201,64 +357,131 @@ export function Settings() {
 				</div>
 			</form>
 
-			{/* History lookup */}
+			{/* --- History Lookup --- */}
 			<div
 				style={{
 					background: "#fff",
-					borderRadius: 10,
-					padding: 24,
-					boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+					borderRadius: 8,
+					padding: 20,
+					border: "1px solid #e8eaed",
 				}}
 			>
-				<h3 style={{ margin: "0 0 12px", fontSize: 15 }}>Lịch sử threshold</h3>
-				<div style={{ marginBottom: 16 }}>
+				<h3
+					style={{
+						margin: "0 0 10px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Lịch sử ngưỡng
+				</h3>
+				<div style={{ marginBottom: 14 }}>
 					<input
 						value={maHang}
 						onChange={(e) => setMaHang(e.target.value)}
 						placeholder="Nhập mã hàng để tra cứu..."
-						style={{ ...inputStyle, width: 300 }}
+						style={{ ...inputStyle, width: 260 }}
 					/>
 				</div>
 
 				{historyLoading ? (
-					<p style={{ color: "#888" }}>Đang tải...</p>
+					<p style={{ color: "#7a7f8e", fontSize: 12 }}>Đang tải...</p>
 				) : history.length === 0 ? (
-					<p style={{ color: "#888" }}>
+					<p style={{ color: "#7a7f8e", fontSize: 12 }}>
 						{maHang
-							? "Chưa có threshold cho SKU này."
+							? "Chưa có ngưỡng cho mã này."
 							: "Nhập mã hàng để xem lịch sử."}
 					</p>
 				) : (
 					<table
-						style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}
+						style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}
 					>
 						<thead>
-							<tr style={{ borderBottom: "2px solid #eee", textAlign: "left" }}>
-								<th style={{ padding: "8px 12px" }}>Min qty</th>
-								<th style={{ padding: "8px 12px" }}>Optimal qty</th>
-								<th style={{ padding: "8px 12px" }}>Max age (days)</th>
-								<th style={{ padding: "8px 12px" }}>Source</th>
-								<th style={{ padding: "8px 12px" }}>Hiệu lực từ</th>
-								<th style={{ padding: "8px 12px" }}>Hiệu lực đến</th>
-								<th style={{ padding: "8px 12px" }}>Ngày tạo</th>
+							<tr
+								style={{ borderBottom: "1px solid #e8eaed", textAlign: "left" }}
+							>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Min qty
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Optimal qty
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Max age
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Source
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Từ
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Đến
+								</th>
+								<th
+									style={{
+										padding: "6px 10px",
+										color: "#7a7f8e",
+										fontWeight: 500,
+									}}
+								>
+									Ngày tạo
+								</th>
 							</tr>
 						</thead>
 						<tbody>
 							{history.map((t) => (
-								<tr key={t.id} style={{ borderBottom: "1px solid #f0f0f0" }}>
-									<td style={{ padding: "8px 12px" }}>{t.min_qty}</td>
-									<td style={{ padding: "8px 12px" }}>{t.optimal_qty}</td>
-									<td style={{ padding: "8px 12px" }}>{t.max_age_days}</td>
-									<td style={{ padding: "8px 12px" }}>{t.source}</td>
-									<td style={{ padding: "8px 12px" }}>
+								<tr key={t.id} style={{ borderBottom: "1px solid #f2f3f5" }}>
+									<td style={{ padding: "6px 10px" }}>{t.min_qty}</td>
+									<td style={{ padding: "6px 10px" }}>{t.optimal_qty}</td>
+									<td style={{ padding: "6px 10px" }}>{t.max_age_days}</td>
+									<td style={{ padding: "6px 10px" }}>{t.source}</td>
+									<td style={{ padding: "6px 10px" }}>
 										{new Date(t.effective_from).toLocaleDateString("vi-VN")}
 									</td>
-									<td style={{ padding: "8px 12px" }}>
+									<td style={{ padding: "6px 10px" }}>
 										{t.effective_to
 											? new Date(t.effective_to).toLocaleDateString("vi-VN")
 											: "—"}
 									</td>
-									<td style={{ padding: "8px 12px" }}>
+									<td style={{ padding: "6px 10px" }}>
 										{new Date(t.created_at).toLocaleDateString("vi-VN")}
 									</td>
 								</tr>
@@ -286,13 +509,13 @@ function Field({
 		<div>
 			<label
 				style={{
-					fontSize: 12,
-					color: "#888",
+					fontSize: 11,
+					color: "#7a7f8e",
 					display: "block",
-					marginBottom: 4,
+					marginBottom: 3,
 				}}
 			>
-				{label} {required && <span style={{ color: "#f44336" }}>*</span>}
+				{label} {required && <span style={{ color: "#e06363" }}>*</span>}
 			</label>
 			{children}
 		</div>
@@ -301,8 +524,9 @@ function Field({
 
 const inputStyle: React.CSSProperties = {
 	width: "100%",
-	padding: "8px 12px",
-	borderRadius: 6,
-	border: "1px solid #ccc",
-	fontSize: 13,
+	padding: "7px 10px",
+	borderRadius: 5,
+	border: "1px solid #d5d8de",
+	fontSize: 12,
+	color: "#3a3f4b",
 };

@@ -9,25 +9,25 @@ const KPI_CONFIG = [
 	{
 		key: "sku_count" as const,
 		label: "Tổng SKU",
-		color: "#2196F3",
+		color: "#6b7efa",
 		format: (v: number) => v.toLocaleString("vi-VN"),
 	},
 	{
 		key: "sku_ton_lau" as const,
 		label: "SKU tồn lâu",
-		color: "#FF9800",
+		color: "#e5a04b",
 		format: (v: number) => v.toLocaleString("vi-VN"),
 	},
 	{
 		key: "sku_thieu_hang" as const,
 		label: "SKU thiếu hàng",
-		color: "#f44336",
+		color: "#e06363",
 		format: (v: number) => v.toLocaleString("vi-VN"),
 	},
 	{
 		key: "tong_tien_hang" as const,
 		label: "Tổng tiền hàng",
-		color: "#4CAF50",
+		color: "#5bb98c",
 		format: (v: number) =>
 			new Intl.NumberFormat("vi-VN", {
 				style: "currency",
@@ -50,16 +50,16 @@ export function KpiCards({ data, loading }: KpiCardsProps) {
 					key={kpi.key}
 					style={{
 						background: "#fff",
-						borderRadius: 10,
-						padding: "20px 24px",
-						boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-						borderTop: `3px solid ${kpi.color}`,
+						borderRadius: 8,
+						padding: "18px 20px",
+						border: "1px solid #e8eaed",
+						borderTop: `2px solid ${kpi.color}`,
 					}}
 				>
-					<div style={{ fontSize: 13, color: "#888", marginBottom: 8 }}>
+					<div style={{ fontSize: 12, color: "#7a7f8e", marginBottom: 6 }}>
 						{kpi.label}
 					</div>
-					<div style={{ fontSize: 28, fontWeight: 700, color: "#222" }}>
+					<div style={{ fontSize: 24, fontWeight: 700, color: "#1e2330" }}>
 						{loading || !data ? "—" : kpi.format(data[kpi.key])}
 					</div>
 				</div>

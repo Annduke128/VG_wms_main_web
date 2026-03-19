@@ -1,5 +1,3 @@
-import type { ReactNode } from "react";
-
 type Page = "overview" | "inventory" | "orders" | "settings";
 
 interface SidebarProps {
@@ -7,11 +5,11 @@ interface SidebarProps {
 	onChange: (page: Page) => void;
 }
 
-const NAV_ITEMS: { key: Page; label: string; icon: ReactNode }[] = [
-	{ key: "overview", label: "Tổng quan", icon: "📊" },
-	{ key: "inventory", label: "Kho", icon: "📦" },
-	{ key: "orders", label: "Nhập / Xuất", icon: "🔄" },
-	{ key: "settings", label: "Settings", icon: "⚙️" },
+const NAV_ITEMS: { key: Page; label: string }[] = [
+	{ key: "overview", label: "Tổng quan" },
+	{ key: "inventory", label: "Kho" },
+	{ key: "orders", label: "Nhập / Xuất" },
+	{ key: "settings", label: "Cài đặt" },
 ];
 
 export type { Page };
@@ -20,10 +18,10 @@ export function Sidebar({ active, onChange }: SidebarProps) {
 	return (
 		<aside
 			style={{
-				width: 220,
+				width: 200,
 				minHeight: "100vh",
-				background: "#1a1a2e",
-				color: "#e0e0e0",
+				background: "#1e2330",
+				color: "#c5c9d4",
 				display: "flex",
 				flexDirection: "column",
 				flexShrink: 0,
@@ -32,14 +30,14 @@ export function Sidebar({ active, onChange }: SidebarProps) {
 			<div
 				style={{
 					padding: "20px 16px",
-					borderBottom: "1px solid #2a2a4a",
+					borderBottom: "1px solid rgba(255,255,255,0.06)",
 					fontWeight: 700,
-					fontSize: 18,
+					fontSize: 15,
 					color: "#fff",
-					letterSpacing: 0.5,
+					letterSpacing: 0.2,
 				}}
 			>
-				WMS Dashboard
+				Vĩnh Giang WMS
 			</div>
 
 			<nav style={{ flex: 1, padding: "8px 0" }}>
@@ -48,26 +46,24 @@ export function Sidebar({ active, onChange }: SidebarProps) {
 						key={item.key}
 						onClick={() => onChange(item.key)}
 						style={{
-							display: "flex",
-							alignItems: "center",
-							gap: 10,
+							display: "block",
 							width: "100%",
-							padding: "12px 20px",
+							padding: "10px 20px",
 							border: "none",
-							background: active === item.key ? "#16213e" : "transparent",
-							color: active === item.key ? "#fff" : "#a0a0b8",
-							fontSize: 14,
+							background:
+								active === item.key ? "rgba(255,255,255,0.07)" : "transparent",
+							color: active === item.key ? "#fff" : "#8b90a0",
+							fontSize: 13,
 							fontWeight: active === item.key ? 600 : 400,
 							cursor: "pointer",
 							textAlign: "left",
 							borderLeft:
 								active === item.key
-									? "3px solid #4fc3f7"
-									: "3px solid transparent",
-							transition: "all 0.15s ease",
+									? "2px solid #7c8cf5"
+									: "2px solid transparent",
+							transition: "all 0.12s ease",
 						}}
 					>
-						<span style={{ fontSize: 16 }}>{item.icon}</span>
 						{item.label}
 					</button>
 				))}

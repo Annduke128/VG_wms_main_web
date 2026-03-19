@@ -39,9 +39,9 @@ export function Inventory() {
 					style={{
 						marginTop: 16,
 						background: "#fff",
-						borderRadius: 10,
+						borderRadius: 8,
 						padding: 20,
-						boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+						border: "1px solid #e8eaed",
 					}}
 				>
 					<div
@@ -52,9 +52,16 @@ export function Inventory() {
 							marginBottom: 12,
 						}}
 					>
-						<h3 style={{ margin: 0, fontSize: 15 }}>
+						<h3
+							style={{
+								margin: 0,
+								fontSize: 13,
+								fontWeight: 600,
+								color: "#3a3f4b",
+							}}
+						>
 							Lô hàng —{" "}
-							<span style={{ color: "#1976d2" }}>{selectedMaHang}</span>
+							<span style={{ color: "#6b7efa" }}>{selectedMaHang}</span>
 						</h3>
 						<button
 							onClick={() => {
@@ -64,9 +71,9 @@ export function Inventory() {
 							style={{
 								background: "none",
 								border: "none",
-								fontSize: 18,
+								fontSize: 16,
 								cursor: "pointer",
-								color: "#888",
+								color: "#7a7f8e",
 							}}
 						>
 							✕

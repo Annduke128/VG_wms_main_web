@@ -20,7 +20,9 @@ interface ChartsProps {
 export function DashboardChartsView({ data, loading }: ChartsProps) {
 	if (loading || !data) {
 		return (
-			<div style={{ color: "#888", padding: 20 }}>Đang tải biểu đồ...</div>
+			<div style={{ color: "#7a7f8e", padding: 20, fontSize: 13 }}>
+				Đang tải biểu đồ...
+			</div>
 		);
 	}
 
@@ -44,76 +46,93 @@ export function DashboardChartsView({ data, loading }: ChartsProps) {
 			style={{
 				display: "grid",
 				gridTemplateColumns: "1fr 1fr",
-				gap: 24,
-				marginTop: 24,
+				gap: 20,
+				marginTop: 20,
 			}}
 		>
-			{/* Chart 1: Inbound/Outbound theo tuần */}
 			<div
 				style={{
 					background: "#fff",
-					borderRadius: 10,
+					borderRadius: 8,
 					padding: 20,
-					boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+					border: "1px solid #e8eaed",
 				}}
 			>
-				<h3 style={{ margin: "0 0 16px", fontSize: 15, color: "#333" }}>
-					Nhập / Xuất theo tuần (4 tuần)
+				<h3
+					style={{
+						margin: "0 0 16px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Nhập / Xuất theo tuần
 				</h3>
-				<ResponsiveContainer width="100%" height={280}>
+				<ResponsiveContainer width="100%" height={260}>
 					<LineChart data={weekData}>
-						<CartesianGrid strokeDasharray="3 3" />
-						<XAxis dataKey="week_label" fontSize={12} />
-						<YAxis fontSize={12} />
+						<CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+						<XAxis
+							dataKey="week_label"
+							fontSize={11}
+							tick={{ fill: "#7a7f8e" }}
+						/>
+						<YAxis fontSize={11} tick={{ fill: "#7a7f8e" }} />
 						<Tooltip />
 						<Legend />
 						<Line
 							type="monotone"
 							dataKey="total_in"
 							name="Nhập"
-							stroke="#4CAF50"
+							stroke="#5bb98c"
 							strokeWidth={2}
-							dot={{ r: 4 }}
+							dot={{ r: 3 }}
 						/>
 						<Line
 							type="monotone"
 							dataKey="total_out"
 							name="Xuất"
-							stroke="#f44336"
+							stroke="#e06363"
 							strokeWidth={2}
-							dot={{ r: 4 }}
+							dot={{ r: 3 }}
 						/>
 					</LineChart>
 				</ResponsiveContainer>
 			</div>
 
-			{/* Chart 2: Tồn thực vs Tối ưu */}
 			<div
 				style={{
 					background: "#fff",
-					borderRadius: 10,
+					borderRadius: 8,
 					padding: 20,
-					boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+					border: "1px solid #e8eaed",
 				}}
 			>
-				<h3 style={{ margin: "0 0 16px", fontSize: 15, color: "#333" }}>
-					Tồn thực vs Tối ưu (Top SKU)
+				<h3
+					style={{
+						margin: "0 0 16px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Tồn thực vs Tối ưu
 				</h3>
-				<ResponsiveContainer width="100%" height={280}>
+				<ResponsiveContainer width="100%" height={260}>
 					<BarChart data={optimalData}>
-						<CartesianGrid strokeDasharray="3 3" />
+						<CartesianGrid strokeDasharray="3 3" stroke="#eee" />
 						<XAxis
 							dataKey="name"
-							fontSize={11}
+							fontSize={10}
 							angle={-20}
 							textAnchor="end"
 							height={50}
+							tick={{ fill: "#7a7f8e" }}
 						/>
-						<YAxis fontSize={12} />
+						<YAxis fontSize={11} tick={{ fill: "#7a7f8e" }} />
 						<Tooltip />
 						<Legend />
-						<Bar dataKey="Tồn thực" fill="#2196F3" radius={[4, 4, 0, 0]} />
-						<Bar dataKey="Tối ưu" fill="#FF9800" radius={[4, 4, 0, 0]} />
+						<Bar dataKey="Tồn thực" fill="#6b7efa" radius={[3, 3, 0, 0]} />
+						<Bar dataKey="Tối ưu" fill="#e5a04b" radius={[3, 3, 0, 0]} />
 					</BarChart>
 				</ResponsiveContainer>
 			</div>

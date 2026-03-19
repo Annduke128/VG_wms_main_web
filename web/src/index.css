@@ -1,11 +1,15 @@
 :root {
   font-family:
+    "Be Vietnam Pro",
     system-ui,
     -apple-system,
     sans-serif;
   line-height: 1.5;
-  color: #213547;
-  background-color: #f4f5f7;
+  font-weight: 400;
+  color: #2d3748;
+  background-color: #f7f8fa;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -19,4 +23,15 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+table {
+  font-family: inherit;
 }

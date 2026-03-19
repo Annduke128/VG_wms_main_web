@@ -43,11 +43,15 @@ export function Orders() {
 				style={{
 					display: "flex",
 					alignItems: "center",
-					gap: 16,
+					gap: 12,
 					marginBottom: 16,
 				}}
 			>
-				<h2 style={{ margin: 0, fontSize: 20 }}>Nhập / Xuất</h2>
+				<h2
+					style={{ margin: 0, fontSize: 16, fontWeight: 600, color: "#1e2330" }}
+				>
+					Nhập / Xuất
+				</h2>
 				<select
 					value={typeFilter}
 					onChange={(e) => {
@@ -55,10 +59,11 @@ export function Orders() {
 						setPage(1);
 					}}
 					style={{
-						padding: "6px 12px",
-						borderRadius: 6,
-						border: "1px solid #ccc",
-						fontSize: 13,
+						padding: "6px 10px",
+						borderRadius: 5,
+						border: "1px solid #d5d8de",
+						fontSize: 12,
+						color: "#3a3f4b",
 					}}
 				>
 					<option value="">Tất cả</option>
@@ -69,14 +74,14 @@ export function Orders() {
 					onClick={() => setShowForm(!showForm)}
 					style={{
 						marginLeft: "auto",
-						padding: "8px 16px",
-						background: "#1976d2",
+						padding: "7px 14px",
+						background: "#3a3f4b",
 						color: "#fff",
 						border: "none",
-						borderRadius: 6,
+						borderRadius: 5,
 						cursor: "pointer",
-						fontSize: 13,
-						fontWeight: 600,
+						fontSize: 12,
+						fontWeight: 500,
 					}}
 				>
 					+ Tạo đơn
@@ -101,18 +106,18 @@ export function Orders() {
 							width: "100%",
 							borderCollapse: "collapse",
 							background: "#fff",
-							borderRadius: 10,
+							borderRadius: 6,
 							overflow: "hidden",
-							boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
-							fontSize: 13,
+							border: "1px solid #e8eaed",
+							fontSize: 12,
 						}}
 					>
 						<thead>
 							<tr
 								style={{
-									borderBottom: "2px solid #eee",
+									borderBottom: "1px solid #e8eaed",
 									textAlign: "left",
-									background: "#fafafa",
+									background: "#fafbfc",
 								}}
 							>
 								<th style={{ padding: "10px 12px" }}>ID</th>
@@ -136,12 +141,12 @@ export function Orders() {
 									<td style={{ padding: "8px 12px" }}>
 										<span
 											style={{
-												padding: "2px 8px",
-												borderRadius: 4,
-												fontSize: 12,
-												fontWeight: 600,
-												background: o.type === "in" ? "#E8F5E9" : "#FFEBEE",
-												color: o.type === "in" ? "#2E7D32" : "#C62828",
+												padding: "2px 6px",
+												borderRadius: 3,
+												fontSize: 11,
+												fontWeight: 500,
+												background: o.type === "in" ? "#e8f5ed" : "#fde8e8",
+												color: o.type === "in" ? "#3a7d4f" : "#b83b3b",
 											}}
 										>
 											{o.type === "in" ? "Nhập" : "Xuất"}
@@ -279,12 +284,12 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 			onSubmit={handleSubmit}
 			style={{
 				background: "#fff",
-				borderRadius: 10,
-				padding: 20,
+				borderRadius: 6,
+				padding: 18,
 				marginBottom: 16,
-				boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+				border: "1px solid #e8eaed",
 				display: "flex",
-				gap: 12,
+				gap: 10,
 				alignItems: "flex-end",
 				flexWrap: "wrap",
 			}}
@@ -292,10 +297,10 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 			<div>
 				<label
 					style={{
-						fontSize: 12,
-						color: "#888",
+						fontSize: 11,
+						color: "#7a7f8e",
 						display: "block",
-						marginBottom: 4,
+						marginBottom: 3,
 					}}
 				>
 					Loại
@@ -304,10 +309,11 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 					value={type}
 					onChange={(e) => setType(e.target.value as "in" | "out")}
 					style={{
-						padding: "8px 12px",
-						borderRadius: 6,
-						border: "1px solid #ccc",
-						fontSize: 13,
+						padding: "7px 10px",
+						borderRadius: 5,
+						border: "1px solid #d5d8de",
+						fontSize: 12,
+						color: "#3a3f4b",
 					}}
 				>
 					<option value="in">Nhập</option>
@@ -318,13 +324,13 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 			<div>
 				<label
 					style={{
-						fontSize: 12,
-						color: "#888",
+						fontSize: 11,
+						color: "#7a7f8e",
 						display: "block",
-						marginBottom: 4,
+						marginBottom: 3,
 					}}
 				>
-					Mã hàng (barcode)
+					Mã hàng
 				</label>
 				<input
 					value={maHang}
@@ -332,11 +338,12 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 					placeholder="VD: SP001"
 					required
 					style={{
-						padding: "8px 12px",
-						borderRadius: 6,
-						border: "1px solid #ccc",
-						fontSize: 13,
-						width: 160,
+						padding: "7px 10px",
+						borderRadius: 5,
+						border: "1px solid #d5d8de",
+						fontSize: 12,
+						width: 140,
+						color: "#3a3f4b",
 					}}
 				/>
 			</div>
@@ -345,24 +352,25 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 				<div>
 					<label
 						style={{
-							fontSize: 12,
-							color: "#888",
+							fontSize: 11,
+							color: "#7a7f8e",
 							display: "block",
-							marginBottom: 4,
+							marginBottom: 3,
 						}}
 					>
-						Mã thùng (batch)
+						Mã thùng
 					</label>
 					<input
 						value={batchCode}
 						onChange={(e) => setBatchCode(e.target.value)}
 						placeholder="VD: BATCH-001"
 						style={{
-							padding: "8px 12px",
-							borderRadius: 6,
-							border: "1px solid #ccc",
-							fontSize: 13,
-							width: 160,
+							padding: "7px 10px",
+							borderRadius: 5,
+							border: "1px solid #d5d8de",
+							fontSize: 12,
+							width: 140,
+							color: "#3a3f4b",
 						}}
 					/>
 				</div>
@@ -371,10 +379,10 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 			<div>
 				<label
 					style={{
-						fontSize: 12,
-						color: "#888",
+						fontSize: 11,
+						color: "#7a7f8e",
 						display: "block",
-						marginBottom: 4,
+						marginBottom: 3,
 					}}
 				>
 					Số lượng
@@ -388,11 +396,12 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 					min="0.01"
 					step="0.01"
 					style={{
-						padding: "8px 12px",
-						borderRadius: 6,
-						border: "1px solid #ccc",
-						fontSize: 13,
-						width: 120,
+						padding: "7px 10px",
+						borderRadius: 5,
+						border: "1px solid #d5d8de",
+						fontSize: 12,
+						width: 100,
+						color: "#3a3f4b",
 					}}
 				/>
 			</div>
@@ -401,14 +410,14 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 				type="submit"
 				disabled={submitting}
 				style={{
-					padding: "8px 20px",
-					background: type === "in" ? "#4CAF50" : "#f44336",
+					padding: "7px 16px",
+					background: type === "in" ? "#5bb98c" : "#e06363",
 					color: "#fff",
 					border: "none",
-					borderRadius: 6,
+					borderRadius: 5,
 					cursor: submitting ? "not-allowed" : "pointer",
-					fontSize: 13,
-					fontWeight: 600,
+					fontSize: 12,
+					fontWeight: 500,
 				}}
 			>
 				{submitting
@@ -421,8 +430,8 @@ function CreateOrderForm({ onCreated }: { onCreated: () => void }) {
 			{result && (
 				<span
 					style={{
-						fontSize: 13,
-						color: result.startsWith("Lỗi") ? "#C62828" : "#2E7D32",
+						fontSize: 12,
+						color: result.startsWith("Lỗi") ? "#b83b3b" : "#3a7d4f",
 						fontWeight: 500,
 					}}
 				>

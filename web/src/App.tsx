@@ -10,7 +10,7 @@ function App() {
 	const [page, setPage] = useState<Page>("overview");
 
 	return (
-		<div style={{ display: "flex", minHeight: "100vh", background: "#f4f5f7" }}>
+		<div style={{ display: "flex", minHeight: "100vh", background: "#f7f8fa" }}>
 			<Sidebar active={page} onChange={setPage} />
 
 			<main style={{ flex: 1, padding: 24, overflow: "auto" }}>

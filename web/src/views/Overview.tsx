@@ -38,20 +38,33 @@ export function Overview() {
 
 	return (
 		<div>
-			<h2 style={{ margin: "0 0 20px", fontSize: 20, color: "#222" }}>
+			<h2
+				style={{
+					margin: "0 0 20px",
+					fontSize: 16,
+					fontWeight: 600,
+					color: "#1e2330",
+				}}
+			>
 				Tổng quan
 			</h2>
 
 			<KpiCards data={summary} loading={loading} />
 			<DashboardChartsView data={charts} loading={loading} />
 
-			{/* Alerts section */}
 			{alerts.length > 0 && (
-				<div style={{ marginTop: 24 }}>
-					<h3 style={{ margin: "0 0 12px", fontSize: 15, color: "#333" }}>
+				<div style={{ marginTop: 20 }}>
+					<h3
+						style={{
+							margin: "0 0 12px",
+							fontSize: 13,
+							fontWeight: 600,
+							color: "#3a3f4b",
+						}}
+					>
 						Cảnh báo
 					</h3>
-					<div style={{ display: "grid", gap: 8 }}>
+					<div style={{ display: "grid", gap: 6 }}>
 						{alerts.slice(0, 20).map((alert, i) => (
 							<div
 								key={`${alert.ma_hang}-${alert.alert_type}-${i}`}
@@ -60,32 +73,39 @@ export function Overview() {
 									alignItems: "center",
 									gap: 12,
 									background: "#fff",
-									borderRadius: 8,
-									padding: "10px 16px",
-									boxShadow: "0 1px 3px rgba(0,0,0,0.06)",
-									borderLeft: `3px solid ${alert.alert_type === "ton_lau" ? "#FF9800" : "#f44336"}`,
+									borderRadius: 6,
+									padding: "8px 14px",
+									border: "1px solid #e8eaed",
+									borderLeft: `2px solid ${alert.alert_type === "ton_lau" ? "#e5a04b" : "#e06363"}`,
 								}}
 							>
-								<span style={{ fontSize: 13, fontWeight: 600, minWidth: 120 }}>
+								<span
+									style={{
+										fontSize: 12,
+										fontWeight: 600,
+										minWidth: 110,
+										color: "#1e2330",
+									}}
+								>
 									{alert.ma_hang}
 								</span>
-								<span style={{ fontSize: 13, color: "#555", flex: 1 }}>
+								<span style={{ fontSize: 12, color: "#5a5f6e", flex: 1 }}>
 									{alert.ten_san_pham}
 								</span>
 								<span
 									style={{
-										fontSize: 12,
-										padding: "2px 8px",
-										borderRadius: 4,
+										fontSize: 11,
+										padding: "2px 6px",
+										borderRadius: 3,
 										background:
-											alert.alert_type === "ton_lau" ? "#FFF3E0" : "#FFEBEE",
+											alert.alert_type === "ton_lau" ? "#fef3e2" : "#fde8e8",
 										color:
-											alert.alert_type === "ton_lau" ? "#E65100" : "#C62828",
+											alert.alert_type === "ton_lau" ? "#b07a2a" : "#b83b3b",
 									}}
 								>
 									{alert.alert_type === "ton_lau" ? "Tồn lâu" : "Thiếu hàng"}
 								</span>
-								<span style={{ fontSize: 12, color: "#888" }}>
+								<span style={{ fontSize: 11, color: "#7a7f8e" }}>
 									{alert.message}
 								</span>
 							</div>
