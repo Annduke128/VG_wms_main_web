@@ -1,0 +1,46 @@
+# ==== Git ====
+.git
+.gitignore
+
+# ==== Docs ====
+README.md
+PIPELINE.md
+CONTRIBUTING.md
+LICENSE
+
+# ==== IDE ====
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ==== OS ====
+.DS_Store
+Thumbs.db
+
+# ==== Node / Frontend (built separately) ====
+web/node_modules/
+web/dist/
+web/src/
+web/public/
+web/*.json
+web/*.js
+web/*.ts
+
+# ==== Dev config ====
+.air.toml
+.editorconfig
+.golangci.yml
+.env
+.env.*
+docker-compose.override.yml
+docker-compose.prod.yml
+
+# ==== Test / Coverage ====
+*_test.go
+coverage.*
+*.prof
+
+# ==== Temp ====
+tmp/
+uploads/

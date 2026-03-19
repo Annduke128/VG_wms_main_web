@@ -32,7 +32,11 @@ const columns: GridColumn[] = [
 	{ id: "luong_ban_binh_quan_ngay", title: "LBBQ/ngày", width: 120 },
 ];
 
-export function InventoryGrid() {
+interface InventoryGridProps {
+	onRowSelect?: (maHang: string) => void;
+}
+
+export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 	const [data, setData] = useState<InventoryMain[]>([]);
 	const [totalRows, setTotalRows] = useState(0);
 	const [loading, setLoading] = useState(false);
@@ -163,7 +167,7 @@ export function InventoryGrid() {
 	);
 
 	return (
-		<div style={{ width: "100%", height: "calc(100vh - 120px)" }}>
+		<div style={{ width: "100%", height: "calc(100vh - 200px)" }}>
 			<div
 				style={{
 					marginBottom: 8,
@@ -172,7 +176,7 @@ export function InventoryGrid() {
 					gap: 12,
 				}}
 			>
-				<h2 style={{ margin: 0 }}>Inventory</h2>
+				<h2 style={{ margin: 0, fontSize: 20 }}>Kho hàng</h2>
 				{loading && <span style={{ color: "#888" }}>Loading...</span>}
 				<span style={{ color: "#888" }}>{totalRows.toLocaleString()} rows</span>
 			</div>
@@ -183,7 +187,14 @@ export function InventoryGrid() {
 				onCellEdited={onCellEdited}
 				onVisibleRegionChanged={onVisibleRegionChanged}
 				gridSelection={selection}
-				onGridSelectionChange={setSelection}
+				onGridSelectionChange={(sel) => {
+					setSelection(sel);
+					if (onRowSelect && sel.current?.cell) {
+						const rowIdx = sel.current.cell[1];
+						const item = data[rowIdx];
+						if (item) onRowSelect(item.ma_hang);
+					}
+				}}
 				smoothScrollX
 				smoothScrollY
 				rowMarkers="both"

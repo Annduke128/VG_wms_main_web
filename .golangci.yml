@@ -1,0 +1,84 @@
+# golangci-lint configuration
+# Run: golangci-lint run ./...
+
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - bodyclose
+    - durationcheck
+    - errname
+    - errorlint
+    - exhaustive
+    - gocritic
+    - gofmt
+    - goimports
+    - misspell
+    - nilerr
+    - prealloc
+    - predeclared
+    - revive
+    - sqlclosecheck
+    - unconvert
+    - unparam
+    - whitespace
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+
+  revive:
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: exported
+      - name: increment-decrement
+      - name: receiver-naming
+      - name: unexported-return
+      - name: var-naming
+
+  goimports:
+    local-prefixes: wms-v1
+
+  misspell:
+    locale: US
+
+  exhaustive:
+    default-signifies-exhaustive: true
+
+issues:
+  max-issues-per-linter: 50
+  max-same-issues: 10
+
+  exclude-rules:
+    # Allow unused parameters in main
+    - path: cmd/
+      linters:
+        - unparam
+
+    # Test files
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gocritic

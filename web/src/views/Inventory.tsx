@@ -1,0 +1,141 @@
+import { useCallback, useState } from "react";
+import { api } from "../api/client";
+import { InventoryGrid } from "../components/InventoryGrid";
+import type { InventoryLot } from "../types/dashboard";
+
+export function Inventory() {
+	const [selectedMaHang, setSelectedMaHang] = useState<string | null>(null);
+	const [lots, setLots] = useState<InventoryLot[]>([]);
+	const [lotsLoading, setLotsLoading] = useState(false);
+
+	const handleRowSelect = useCallback(
+		async (maHang: string) => {
+			if (maHang === selectedMaHang) {
+				setSelectedMaHang(null);
+				setLots([]);
+				return;
+			}
+			setSelectedMaHang(maHang);
+			setLotsLoading(true);
+			try {
+				const data = (await api.inventoryLots(maHang)) as InventoryLot[];
+				setLots(data || []);
+			} catch (err) {
+				console.error("Fetch lots error:", err);
+				setLots([]);
+			} finally {
+				setLotsLoading(false);
+			}
+		},
+		[selectedMaHang],
+	);
+
+	return (
+		<div>
+			<InventoryGrid onRowSelect={handleRowSelect} />
+
+			{selectedMaHang && (
+				<div
+					style={{
+						marginTop: 16,
+						background: "#fff",
+						borderRadius: 10,
+						padding: 20,
+						boxShadow: "0 1px 4px rgba(0,0,0,0.08)",
+					}}
+				>
+					<div
+						style={{
+							display: "flex",
+							alignItems: "center",
+							justifyContent: "space-between",
+							marginBottom: 12,
+						}}
+					>
+						<h3 style={{ margin: 0, fontSize: 15 }}>
+							Lô hàng —{" "}
+							<span style={{ color: "#1976d2" }}>{selectedMaHang}</span>
+						</h3>
+						<button
+							onClick={() => {
+								setSelectedMaHang(null);
+								setLots([]);
+							}}
+							style={{
+								background: "none",
+								border: "none",
+								fontSize: 18,
+								cursor: "pointer",
+								color: "#888",
+							}}
+						>
+							✕
+						</button>
+					</div>
+
+					{lotsLoading ? (
+						<p style={{ color: "#888" }}>Đang tải...</p>
+					) : lots.length === 0 ? (
+						<p style={{ color: "#888" }}>Chưa có lô hàng nào.</p>
+					) : (
+						<table
+							style={{
+								width: "100%",
+								borderCollapse: "collapse",
+								fontSize: 13,
+							}}
+						>
+							<thead>
+								<tr
+									style={{ borderBottom: "2px solid #eee", textAlign: "left" }}
+								>
+									<th style={{ padding: "8px 12px" }}>Mã thùng (batch)</th>
+									<th style={{ padding: "8px 12px" }}>Ngày nhập</th>
+									<th style={{ padding: "8px 12px", textAlign: "right" }}>
+										SL nhập
+									</th>
+									<th style={{ padding: "8px 12px", textAlign: "right" }}>
+										SL đã xuất
+									</th>
+									<th style={{ padding: "8px 12px", textAlign: "right" }}>
+										SL còn lại
+									</th>
+								</tr>
+							</thead>
+							<tbody>
+								{lots.map((lot) => (
+									<tr
+										key={lot.id}
+										style={{ borderBottom: "1px solid #f0f0f0" }}
+									>
+										<td style={{ padding: "8px 12px", fontWeight: 600 }}>
+											{lot.batch_code}
+										</td>
+										<td style={{ padding: "8px 12px" }}>
+											{new Date(lot.received_at).toLocaleDateString("vi-VN")}
+										</td>
+										<td style={{ padding: "8px 12px", textAlign: "right" }}>
+											{lot.qty_in.toLocaleString("vi-VN")}
+										</td>
+										<td style={{ padding: "8px 12px", textAlign: "right" }}>
+											{lot.qty_out.toLocaleString("vi-VN")}
+										</td>
+										<td
+											style={{
+												padding: "8px 12px",
+												textAlign: "right",
+												fontWeight: 600,
+											}}
+										>
+											{lot.qty_remaining.toLocaleString("vi-VN")}
+										</td>
+									</tr>
+								))}
+							</tbody>
+						</table>
+					)}
+				</div>
+			)}
+		</div>
+	);
+}

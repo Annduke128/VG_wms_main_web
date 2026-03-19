@@ -1,0 +1,50 @@
+# ==== Go ====
+bin/
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+vendor/
+tmp/
+
+# ==== Test ====
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# ==== Environment ====
+.env
+.env.local
+.env.*.local
+
+# ==== IDE ====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ==== OS ====
+*.log
+*.pid
+
+# ==== Node (web/) ====
+web/node_modules/
+web/dist/
+web/dist-ssr/
+
+# ==== Docker ====
+docker-compose.override.yml
+
+# ==== Build artifacts ====
+*.prof
+*.cpu
+*.mem
+
+# ==== Upload temp ====
+uploads/
+*.xlsx.tmp

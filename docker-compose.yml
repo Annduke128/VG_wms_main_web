@@ -9,11 +9,32 @@ services:
       POSTGRES_PASSWORD: wms_secret
     volumes:
       - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wms -d wms"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  migrate:
+    image: migrate/migrate:v4.17.0
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./migrations:/migrations
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://wms:wms_secret@postgres:5432/wms?sslmode=disable",
+        "up",
+      ]
 
   clickhouse:
     image: clickhouse/clickhouse-server:24-alpine

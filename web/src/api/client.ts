@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
+const API_BASE = import.meta.env.VITE_API_URL || "/api";
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
 	const res = await fetch(`${API_BASE}${path}`, {
@@ -60,4 +60,33 @@ export const api = {
 			body: form,
 		}).then((r) => r.json());
 	},
+
+	// Dashboard
+	dashboardSummary: () => request("/dashboard/summary"),
+	dashboardCharts: (weeks = 4) => request(`/dashboard/charts?weeks=${weeks}`),
+
+	// Inventory lots & alerts
+	inventoryLots: (maHang: string) =>
+		request(`/inventory/lots?ma_hang=${encodeURIComponent(maHang)}`),
+	inventoryAlerts: () => request("/inventory/alerts"),
+
+	// Orders
+	listOrders: (type?: string, page = 1, limit = 50) => {
+		const params = new URLSearchParams({
+			page: String(page),
+			limit: String(limit),
+		});
+		if (type) params.set("type", type);
+		return request(`/orders?${params}`);
+	},
+	createOrder: (body: unknown) =>
+		request("/orders", { method: "POST", body: JSON.stringify(body) }),
+
+	// Thresholds
+	getThresholds: (maHang?: string) => {
+		const params = maHang ? `?ma_hang=${encodeURIComponent(maHang)}` : "";
+		return request(`/thresholds${params}`);
+	},
+	saveThreshold: (body: unknown) =>
+		request("/thresholds", { method: "POST", body: JSON.stringify(body) }),
 };
