@@ -61,6 +61,12 @@ export const api = {
 		}).then((r) => r.json());
 	},
 
+	downloadInventoryTemplate: async () => {
+		const res = await fetch(`${API_BASE}/import/inventory/template`);
+		if (!res.ok) throw new Error("Download failed");
+		return res.blob();
+	},
+
 	// Dashboard
 	dashboardSummary: () => request("/dashboard/summary"),
 	dashboardCharts: (weeks = 4) => request(`/dashboard/charts?weeks=${weeks}`),

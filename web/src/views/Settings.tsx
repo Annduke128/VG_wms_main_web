@@ -84,6 +84,24 @@ export function Settings() {
 
 	// --- Import handlers ---
 
+	const handleDownloadTemplate = useCallback(async () => {
+		try {
+			const blob = await api.downloadInventoryTemplate();
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement("a");
+			a.href = url;
+			a.download = "MauTonKho.xlsx";
+			document.body.appendChild(a);
+			a.click();
+			document.body.removeChild(a);
+			URL.revokeObjectURL(url);
+		} catch (err) {
+			alert(
+				`Tải mẫu thất bại: ${err instanceof Error ? err.message : "Unknown"}`,
+			);
+		}
+	}, []);
+
 	const handleUpload = useCallback(async () => {
 		const input = fileRef.current;
 		if (!input?.files?.[0]) {
@@ -162,6 +180,21 @@ export function Settings() {
 					nhật).
 				</p>
 				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+					<button
+						onClick={handleDownloadTemplate}
+						style={{
+							padding: "7px 16px",
+							background: "#fff",
+							color: "#3a3f4b",
+							border: "1px solid #d5d8de",
+							borderRadius: 5,
+							cursor: "pointer",
+							fontSize: 12,
+							fontWeight: 500,
+						}}
+					>
+						Tải mẫu .xlsx
+					</button>
 					<input
 						ref={(el) => {
 							fileRef.current = el;

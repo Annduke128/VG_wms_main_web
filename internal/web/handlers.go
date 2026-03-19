@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"wms-v1/internal/domain"
+	"wms-v1/internal/importer"
 	"wms-v1/internal/service"
 )
 
@@ -373,6 +374,19 @@ func (h *Handlers) GetThresholds(c *gin.Context) {
 		return
 	}
 	c.JSON(200, thresholds)
+}
+
+// --- Template Download ---
+
+func (h *Handlers) DownloadInventoryTemplate(c *gin.Context) {
+	buf, err := importer.BuildInventoryTemplate()
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to generate template: " + err.Error()})
+		return
+	}
+
+	c.Header("Content-Disposition", "attachment; filename=MauTonKho.xlsx")
+	c.Data(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", buf)
 }
 
 func (h *Handlers) SaveThreshold(c *gin.Context) {
