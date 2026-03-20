@@ -261,6 +261,24 @@ func (h *Handlers) InventoryAlerts(c *gin.Context) {
 	c.JSON(200, alerts)
 }
 
+func (h *Handlers) ZeroSales(c *gin.Context) {
+	items, err := h.Dashboard.GetZeroSales(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
+func (h *Handlers) RestockAlerts(c *gin.Context) {
+	items, err := h.Dashboard.GetRestockAlerts(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
 func (h *Handlers) InventoryLots(c *gin.Context) {
 	maHang := c.Query("ma_hang")
 	if maHang == "" {

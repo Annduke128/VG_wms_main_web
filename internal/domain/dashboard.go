@@ -53,6 +53,25 @@ type AlertItem struct {
 	MinQty float64 `json:"min_qty,omitempty"`
 }
 
+// ZeroSalesItem represents a SKU with LBBQ=0 and so_ton>0 (no sales)
+type ZeroSalesItem struct {
+	MaHang               string  `json:"ma_hang"`
+	TenSanPham           string  `json:"ten_san_pham"`
+	SoTon                float64 `json:"so_ton"`
+	LuongBanBinhQuanNgay float64 `json:"luong_ban_binh_quan_ngay"`
+	LatestOutboundMonth  string  `json:"latest_outbound_month,omitempty"` // MM/YYYY or empty
+}
+
+// RestockAlertItem represents a SKU that was sold before but now has so_ton=0
+// and 1-7 days since last outbound
+type RestockAlertItem struct {
+	MaHang           string  `json:"ma_hang"`
+	TenSanPham       string  `json:"ten_san_pham"`
+	SoTon            float64 `json:"so_ton"`
+	NgaySinceLastOut int     `json:"ngay_since_last_out"` // days since last outbound
+	LastOutboundDate string  `json:"last_outbound_date"`  // ISO date or "Chưa có dữ liệu xuất hàng"
+}
+
 // ThresholdRequest is the POST body for saving a threshold
 type ThresholdRequest struct {
 	MaHang        string     `json:"ma_hang" binding:"required"`

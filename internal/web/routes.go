@@ -54,6 +54,8 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	// Dashboard
 	api.GET("/dashboard/summary", h.DashboardSummary)
 	api.GET("/dashboard/charts", h.DashboardCharts)
+	api.GET("/dashboard/zero-sales", h.ZeroSales)
+	api.GET("/dashboard/restock-alerts", h.RestockAlerts)
 
 	// Inventory extras
 	api.GET("/inventory/lots", h.InventoryLots)

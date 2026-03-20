@@ -71,6 +71,10 @@ export const api = {
 	dashboardSummary: () => request("/dashboard/summary"),
 	dashboardCharts: (weeks = 4) => request(`/dashboard/charts?weeks=${weeks}`),
 
+	// Dashboard extras
+	dashboardZeroSales: () => request("/dashboard/zero-sales"),
+	dashboardRestockAlerts: () => request("/dashboard/restock-alerts"),
+
 	// Inventory lots & alerts
 	inventoryLots: (maHang: string) =>
 		request(`/inventory/lots?ma_hang=${encodeURIComponent(maHang)}`),

@@ -6,7 +6,7 @@ import DataEditor, {
 	type GridSelection,
 	type Item,
 } from "@glideapps/glide-data-grid";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "@glideapps/glide-data-grid/dist/index.css";
 import { api } from "../api/client";
 import type {
@@ -48,6 +48,13 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 	});
 
 	const loadedRanges = useRef<Set<string>>(new Set());
+	const [tooltip, setTooltip] = useState<{
+		text: string;
+		x: number;
+		y: number;
+	} | null>(null);
+	const containerRef = useRef<HTMLDivElement>(null);
+	const mousePos = useRef({ x: 0, y: 0 });
 
 	const fetchRange = useCallback(
 		async (startRow: number, endRow: number) => {
@@ -166,8 +173,54 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 		[data],
 	);
 
+	// Track mouse position for tooltip placement
+	const onMouseMove = useCallback((e: React.MouseEvent) => {
+		if (containerRef.current) {
+			const rect = containerRef.current.getBoundingClientRect();
+			mousePos.current = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+		}
+	}, []);
+
+	// Tooltip for LBBQ=0
+	const lbbqColIndex = useMemo(
+		() => columns.findIndex((c) => c.id === "luong_ban_binh_quan_ngay"),
+		[],
+	);
+
+	const onItemHovered = useCallback(
+		(args: { kind: string; location?: readonly [number, number] }) => {
+			if (args.kind === "cell" && args.location) {
+				const [col, row] = args.location;
+				if (col === lbbqColIndex) {
+					const item = data[row];
+					if (item && item.luong_ban_binh_quan_ngay === 0) {
+						const now = new Date();
+						const month = String(now.getMonth() + 1).padStart(2, "0");
+						const year = now.getFullYear();
+						setTooltip({
+							text: `Không có doanh số trong ${month}/${year}`,
+							x: mousePos.current.x,
+							y: mousePos.current.y,
+						});
+						return;
+					}
+				}
+			}
+			setTooltip(null);
+		},
+		[data, lbbqColIndex],
+	);
+
 	return (
-		<div style={{ width: "100%", height: "calc(100vh - 200px)" }}>
+		<div
+			ref={containerRef}
+			onMouseMove={onMouseMove}
+			style={{
+				width: "100%",
+				height: "calc(100vh - 200px)",
+				position: "relative",
+			}}
+		>
 			<div
 				style={{
 					marginBottom: 8,
@@ -194,6 +247,7 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 				getCellContent={getCellContent}
 				onCellEdited={onCellEdited}
 				onVisibleRegionChanged={onVisibleRegionChanged}
+				onItemHovered={onItemHovered}
 				gridSelection={selection}
 				onGridSelectionChange={(sel) => {
 					setSelection(sel);
@@ -209,6 +263,25 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 				width="100%"
 				height="100%"
 			/>
+			{tooltip && (
+				<div
+					style={{
+						position: "absolute",
+						left: tooltip.x + 12,
+						top: tooltip.y - 30,
+						background: "#1e2330",
+						color: "#fff",
+						padding: "4px 10px",
+						borderRadius: 4,
+						fontSize: 11,
+						whiteSpace: "nowrap",
+						pointerEvents: "none",
+						zIndex: 1000,
+					}}
+				>
+					{tooltip.text}
+				</div>
+			)}
 		</div>
 	);
 }

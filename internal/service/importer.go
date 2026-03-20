@@ -101,6 +101,19 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		parseErrors = errs
 		success, err = s.Repo.ImportInventoryFull(ctx, rows)
 
+		// Recalculate metrics for affected SKUs
+		if err == nil && len(rows) > 0 {
+			seen := make(map[string]bool)
+			var maHangs []string
+			for _, row := range rows {
+				if !seen[row.Product.MaHang] {
+					seen[row.Product.MaHang] = true
+					maHangs = append(maHangs, row.Product.MaHang)
+				}
+			}
+			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
+		}
+
 	case "inbound":
 		items, errs, parseErr := importer.ParseInbound(payload.FilePath)
 		if parseErr != nil {

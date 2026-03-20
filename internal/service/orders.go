@@ -92,6 +92,9 @@ func (s *OrderService) CreateInbound(ctx context.Context, req domain.CreateInbou
 		return nil, fmt.Errorf("commit: %w", err)
 	}
 
+	// Recalculate metrics after inbound
+	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang)
+
 	return &domain.InboundResult{
 		InboundItem: *item,
 		Lot:         *lot,
@@ -194,6 +197,9 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 	if err := tx.Commit(ctx); err != nil {
 		return nil, fmt.Errorf("commit: %w", err)
 	}
+
+	// Recalculate metrics after outbound
+	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang)
 
 	return &domain.OutboundResult{
 		OutboundItems:  outboundItems,

@@ -53,6 +53,22 @@ export interface OrderListItem {
 	ngay_nhan_hang: string;
 }
 
+export interface ZeroSalesItem {
+	ma_hang: string;
+	ten_san_pham: string;
+	so_ton: number;
+	luong_ban_binh_quan_ngay: number;
+	latest_outbound_month: string;
+}
+
+export interface RestockAlertItem {
+	ma_hang: string;
+	ten_san_pham: string;
+	so_ton: number;
+	days_since_last_out: number;
+	last_outbound_date: string;
+}
+
 export interface ThresholdEntry {
 	id: number;
 	ma_hang: string;

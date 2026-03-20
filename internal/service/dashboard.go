@@ -44,6 +44,14 @@ func (s *DashboardService) GetAlerts(ctx context.Context) ([]domain.AlertItem, e
 	return s.Repo.GetAlerts(ctx)
 }
 
+func (s *DashboardService) GetZeroSales(ctx context.Context) ([]domain.ZeroSalesItem, error) {
+	return s.Repo.GetZeroSalesSKUs(ctx)
+}
+
+func (s *DashboardService) GetRestockAlerts(ctx context.Context) ([]domain.RestockAlertItem, error) {
+	return s.Repo.GetRestockAlerts(ctx)
+}
+
 func (s *DashboardService) GetThresholds(ctx context.Context, maHang string) ([]domain.InventoryThreshold, error) {
 	return s.Repo.GetThresholdsByMaHang(ctx, maHang)
 }

@@ -182,6 +182,93 @@ func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error
 	return alerts, nil
 }
 
+// GetZeroSalesSKUs returns SKUs with LBBQ=0 and so_ton>0 (zero sales)
+func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSalesItem, error) {
+	query := `
+		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
+		       im.luong_ban_binh_quan_ngay,
+		       COALESCE(to_char(date_trunc('month', sub.latest_out), 'MM/YYYY'), '') AS latest_outbound_month
+		FROM inventory_main im
+		LEFT JOIN (
+			SELECT ma_hang, MAX(ngay_nhan_hang) AS latest_out
+			FROM outbound_items
+			GROUP BY ma_hang
+		) sub ON im.ma_hang = sub.ma_hang
+		WHERE im.so_ton > 0
+		  AND im.luong_ban_binh_quan_ngay = 0
+		ORDER BY im.so_ton DESC
+	`
+
+	rows, err := r.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("get zero sales: %w", err)
+	}
+	defer rows.Close()
+
+	var items []domain.ZeroSalesItem
+	for rows.Next() {
+		var item domain.ZeroSalesItem
+		if err := rows.Scan(&item.MaHang, &item.TenSanPham, &item.SoTon,
+			&item.LuongBanBinhQuanNgay, &item.LatestOutboundMonth); err != nil {
+			return nil, fmt.Errorf("scan zero sales: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if items == nil {
+		items = []domain.ZeroSalesItem{}
+	}
+	return items, nil
+}
+
+// GetRestockAlerts returns SKUs that were sold before, now so_ton=0, 1-7 days since last outbound
+func (r *PostgresRepo) GetRestockAlerts(ctx context.Context) ([]domain.RestockAlertItem, error) {
+	query := `
+		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
+		       CASE
+		         WHEN sub.last_out IS NOT NULL
+		           THEN EXTRACT(DAY FROM NOW() - sub.last_out)::int
+		         ELSE -1
+		       END AS ngay_since_last_out,
+		       CASE
+		         WHEN sub.last_out IS NOT NULL
+		           THEN to_char(sub.last_out, 'YYYY-MM-DD')
+		         ELSE 'Chưa có dữ liệu xuất hàng'
+		       END AS last_outbound_date
+		FROM inventory_main im
+		LEFT JOIN (
+			SELECT ma_hang, MAX(ngay_nhan_hang) AS last_out
+			FROM outbound_items
+			GROUP BY ma_hang
+		) sub ON im.ma_hang = sub.ma_hang
+		WHERE im.so_ton = 0
+		  AND sub.last_out IS NOT NULL
+		  AND EXTRACT(DAY FROM NOW() - sub.last_out) BETWEEN 1 AND 7
+		ORDER BY EXTRACT(DAY FROM NOW() - sub.last_out) ASC
+	`
+
+	rows, err := r.Pool.Query(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("get restock alerts: %w", err)
+	}
+	defer rows.Close()
+
+	var items []domain.RestockAlertItem
+	for rows.Next() {
+		var item domain.RestockAlertItem
+		if err := rows.Scan(&item.MaHang, &item.TenSanPham, &item.SoTon,
+			&item.NgaySinceLastOut, &item.LastOutboundDate); err != nil {
+			return nil, fmt.Errorf("scan restock alert: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	if items == nil {
+		items = []domain.RestockAlertItem{}
+	}
+	return items, nil
+}
+
 // GetThresholdsByMaHang returns active threshold + history for a SKU
 func (r *PostgresRepo) GetThresholdsByMaHang(ctx context.Context, maHang string) ([]domain.InventoryThreshold, error) {
 	query := `
