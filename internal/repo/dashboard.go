@@ -186,7 +186,7 @@ func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error
 func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSalesItem, error) {
 	query := `
 		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
-		       im.luong_ban_binh_quan_ngay,
+		       COALESCE(im.luong_ban_binh_quan_ngay, 0) AS luong_ban_binh_quan_ngay,
 		       COALESCE(to_char(date_trunc('month', sub.latest_out), 'MM/YYYY'), '') AS latest_outbound_month
 		FROM inventory_main im
 		LEFT JOIN (
@@ -195,7 +195,7 @@ func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSales
 			GROUP BY ma_hang
 		) sub ON im.ma_hang = sub.ma_hang
 		WHERE im.so_ton > 0
-		  AND im.luong_ban_binh_quan_ngay = 0
+		  AND im.luong_ban_binh_quan_ngay IS NULL
 		ORDER BY im.so_ton DESC
 	`
 

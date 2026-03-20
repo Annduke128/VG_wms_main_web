@@ -10,7 +10,7 @@ type Product struct {
 	MaNhomHang  string    `json:"ma_nhom_hang" db:"ma_nhom_hang"`
 	NhomHang    string    `json:"nhom_hang" db:"nhom_hang"`
 	DonViTinh   string    `json:"don_vi_tinh" db:"don_vi_tinh"`
-	QuyCach     string    `json:"quy_cach" db:"quy_cach"`
+	QuyCach     float64   `json:"quy_cach" db:"quy_cach"`
 	DonGia      float64   `json:"don_gia" db:"don_gia"`
 	Vat         float64   `json:"vat" db:"vat"`
 	GiaNiv      float64   `json:"gia_niv" db:"gia_niv"`
@@ -30,6 +30,7 @@ type InventoryMain struct {
 	TienXuat             float64 `json:"tien_xuat" db:"tien_xuat"`
 	SoNgayTon            float64 `json:"so_ngay_ton" db:"so_ngay_ton"`
 	LuongBanBinhQuanNgay float64 `json:"luong_ban_binh_quan_ngay" db:"luong_ban_binh_quan_ngay"`
+	SoNgayTonBan         float64 `json:"so_ngay_ton_ban" db:"so_ngay_ton_ban"`
 }
 
 type InboundItem struct {

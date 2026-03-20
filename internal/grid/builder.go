@@ -16,6 +16,7 @@ var AllowedColumns = map[string]bool{
 	"so_ton": true, "so_nhap": true, "so_xuat": true,
 	"tien_ton": true, "tien_nhap": true, "tien_xuat": true,
 	"so_ngay_ton": true, "luong_ban_binh_quan_ngay": true,
+	"so_ngay_ton_ban": true,
 }
 
 // BuildQuery builds a paginated, filtered, sorted SQL query from GridRequest.

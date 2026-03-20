@@ -46,7 +46,7 @@ func ParseProducts(filePath string) ([]domain.Product, []string, error) {
 			MaNhomHang:  row[4],
 			NhomHang:    row[5],
 			DonViTinh:   row[6],
-			QuyCach:     row[7],
+			QuyCach:     parseFloat(row[7]),
 			DonGia:      parseFloat(row[8]),
 			Vat:         parseFloat(row[9]),
 			GiaNiv:      parseFloat(row[10]),

@@ -9,4 +9,5 @@ export interface InventoryMain {
 	tien_xuat: number;
 	so_ngay_ton: number;
 	luong_ban_binh_quan_ngay: number;
+	so_ngay_ton_ban: number;
 }

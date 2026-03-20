@@ -124,16 +124,16 @@ func (r *PostgresRepo) CreateAsyncJob(ctx context.Context, jobID, jobType, paylo
 	return err
 }
 
-// ImportInventoryFull processes rows from the 22-column file:
-// 1. Upsert products (with NgayCapNhat = max ngày nhập per mã vạch)
-// 2. Upsert inventory_main
+// ImportInventoryFull processes rows from the 17-column file:
+// 1. Upsert products (with computed gia_nhap, gia_niv)
+// 2. Upsert inventory_main (with computed tien_ton, tien_nhap, tien_xuat)
 // 3. Insert inbound_items (with batch_code)
 // 4. Upsert inventory_lots
 // Best-effort: each row independent, skip on error.
 func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.InventoryFullRow) (int, error) {
 	success := 0
 	for _, row := range rows {
-		// 1. Upsert product
+		// 1. Upsert product (ngay_cap_nhat uses value from parser directly)
 		_, err := r.Pool.Exec(ctx,
 			`INSERT INTO products (ma_hang, ten_san_pham, ma_bu, ma_cat, ma_nhom_hang, nhom_hang,
 			  don_vi_tinh, quy_cach, don_gia, vat, gia_niv, gia_nhap, ngay_cap_nhat, hoa_hong)
@@ -144,7 +144,7 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 			  don_vi_tinh=EXCLUDED.don_vi_tinh, quy_cach=EXCLUDED.quy_cach,
 			  don_gia=EXCLUDED.don_gia, vat=EXCLUDED.vat, gia_niv=EXCLUDED.gia_niv,
 			  gia_nhap=EXCLUDED.gia_nhap,
-			  ngay_cap_nhat=GREATEST(products.ngay_cap_nhat, EXCLUDED.ngay_cap_nhat),
+			  ngay_cap_nhat=EXCLUDED.ngay_cap_nhat,
 			  hoa_hong=EXCLUDED.hoa_hong`,
 			row.Product.MaHang, row.Product.TenSanPham, row.Product.MaBu, row.Product.MaCat,
 			row.Product.MaNhomHang, row.Product.NhomHang, row.Product.DonViTinh, row.Product.QuyCach,

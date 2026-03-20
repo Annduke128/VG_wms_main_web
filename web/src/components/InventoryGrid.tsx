@@ -30,7 +30,19 @@ const columns: GridColumn[] = [
 	{ id: "tien_xuat", title: "Tiền xuất", width: 120 },
 	{ id: "so_ngay_ton", title: "Số ngày tồn", width: 110 },
 	{ id: "luong_ban_binh_quan_ngay", title: "LBBQ/ngày", width: 120 },
+	{ id: "so_ngay_ton_ban", title: "Ngày tồn bán", width: 110 },
 ];
+
+// Columns that are computed server-side and should not be editable
+const READONLY_COLUMNS = new Set([
+	"ma_hang",
+	"tien_ton",
+	"tien_nhap",
+	"tien_xuat",
+	"so_ngay_ton",
+	"luong_ban_binh_quan_ngay",
+	"so_ngay_ton_ban",
+]);
 
 interface InventoryGridProps {
 	onRowSelect?: (maHang: string) => void;
@@ -124,8 +136,8 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 					kind: GridCellKind.Number,
 					data: value,
 					displayData: value.toLocaleString("vi-VN"),
-					allowOverlay: true,
-					readonly: colDef.id === "ma_hang",
+					allowOverlay: !READONLY_COLUMNS.has(colDef.id as string),
+					readonly: READONLY_COLUMNS.has(colDef.id as string),
 				};
 			}
 
@@ -133,8 +145,8 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 				kind: GridCellKind.Text,
 				data: String(value ?? ""),
 				displayData: String(value ?? ""),
-				allowOverlay: true,
-				readonly: colDef.id === "ma_hang",
+				allowOverlay: !READONLY_COLUMNS.has(colDef.id as string),
+				readonly: READONLY_COLUMNS.has(colDef.id as string),
 			};
 		},
 		[data],
@@ -194,11 +206,8 @@ export function InventoryGrid({ onRowSelect }: InventoryGridProps = {}) {
 				if (col === lbbqColIndex) {
 					const item = data[row];
 					if (item && item.luong_ban_binh_quan_ngay === 0) {
-						const now = new Date();
-						const month = String(now.getMonth() + 1).padStart(2, "0");
-						const year = now.getFullYear();
 						setTooltip({
-							text: `Không có doanh số trong ${month}/${year}`,
+							text: "CẦN ĐẨY HÀNG",
 							x: mousePos.current.x,
 							y: mousePos.current.y,
 						});

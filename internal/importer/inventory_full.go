@@ -11,14 +11,14 @@ import (
 
 const dateFmtDDMMYYYY = "02/01/2006" // dd/mm/yyyy
 
-// InventoryFullRow holds parsed data from a single row of the 22-column file.
+// InventoryFullRow holds parsed data from a single row of the 17-column file.
 type InventoryFullRow struct {
 	Product   domain.Product
 	Inventory domain.InventoryMain
 	Inbound   domain.InboundItem
 }
 
-// ParseInventoryFull reads the 22-column inventory file.
+// ParseInventoryFull reads the 17-column inventory file.
 // Returns parsed rows + parse errors (best-effort: each row independent).
 //
 // Column order (0-indexed):
@@ -30,21 +30,24 @@ type InventoryFullRow struct {
 //	4  Mã nhóm hàng   → products.ma_nhom_hang
 //	5  Nhóm hàng       → products.nhom_hang
 //	6  ĐVT             → products.don_vi_tinh
-//	7  Quy cách        → products.quy_cach
-//	8  Đơn giá bán     → products.don_gia
+//	7  Quy cách        → products.quy_cach (NUMERIC)
+//	8  Đơn giá         → products.don_gia
 //	9  VAT             → products.vat
-//	10 Giá NIV         → products.gia_niv
-//	11 Đơn giá nhập    → products.gia_nhap
-//	12 Ngày cập nhật   → IGNORED (computed as max ngày nhập per mã vạch)
-//	13 Hoa hồng        → products.hoa_hong
-//	14 Mã lô hàng      → inbound_items.batch_code (REQUIRED)
-//	15 Ngày nhập        → inbound_items.ngay_nhan_hang (REQUIRED, dd/mm/yyyy)
-//	16 Số tồn           → inventory_main.so_ton
-//	17 Số nhập          → inventory_main.so_nhap
-//	18 Số xuất          → inventory_main.so_xuat
-//	19 Tiền tồn         → inventory_main.tien_ton
-//	20 Tiền nhập        → inventory_main.tien_nhap
-//	21 Tiền xuất        → inventory_main.tien_xuat
+//	10 Ngày cập nhật   → products.ngay_cap_nhat (if empty → ngày nhập)
+//	11 Hoa hồng        → products.hoa_hong
+//	12 Mã lô hàng      → inbound_items.batch_code (REQUIRED)
+//	13 Ngày nhập        → inbound_items.ngay_nhan_hang (REQUIRED, dd/mm/yyyy)
+//	14 Số tồn           → inventory_main.so_ton
+//	15 Số nhập          → inventory_main.so_nhap
+//	16 Số xuất          → inventory_main.so_xuat
+//
+// Computed fields:
+//
+//	products.gia_nhap = don_gia * quy_cach * hoa_hong
+//	products.gia_niv  = gia_nhap / (1 + VAT)
+//	inventory_main.tien_ton  = don_gia * so_ton
+//	inventory_main.tien_nhap = don_gia * so_nhap
+//	inventory_main.tien_xuat = don_gia * so_xuat
 func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -65,15 +68,12 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 	var results []InventoryFullRow
 	var parseErrors []string
 
-	// Track max ngày nhập per mã vạch for ngay_cap_nhat
-	maxDates := make(map[string]time.Time)
-
 	for i, row := range rows[1:] { // skip header
 		rowNum := i + 2
 
-		if len(row) < 22 {
+		if len(row) < 17 {
 			// Pad with empty strings
-			for len(row) < 22 {
+			for len(row) < 17 {
 				row = append(row, "")
 			}
 		}
@@ -84,13 +84,13 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			continue
 		}
 
-		batchCode := row[14]
+		batchCode := row[12]
 		if batchCode == "" {
 			parseErrors = append(parseErrors, fmt.Sprintf("row %d: mã lô hàng trống", rowNum))
 			continue
 		}
 
-		ngayNhapStr := row[15]
+		ngayNhapStr := row[13]
 		if ngayNhapStr == "" {
 			parseErrors = append(parseErrors, fmt.Sprintf("row %d: ngày nhập trống", rowNum))
 			continue
@@ -103,38 +103,57 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 		}
 
 		tenSanPham := row[1]
+		donGia := parseFloat(row[8])
+		quyCach := parseFloat(row[7])
+		vat := parseFloat(row[9])
+		hoaHong := parseFloat(row[11])
+		soTon := parseFloat(row[14])
+		soNhap := parseFloat(row[15])
+		soXuat := parseFloat(row[16])
 
-		// Track max date per mã vạch
-		if cur, ok := maxDates[maVach]; !ok || ngayNhap.After(cur) {
-			maxDates[maVach] = ngayNhap
+		// Computed: gia_nhap = don_gia * quy_cach * hoa_hong
+		giaNhap := donGia * quyCach * hoaHong
+		// Computed: gia_niv = gia_nhap / (1 + VAT)
+		giaNiv := 0.0
+		if 1+vat > 0 {
+			giaNiv = giaNhap / (1 + vat)
+		}
+
+		// Ngày cập nhật: if file has value → use it; if empty → use ngày nhập
+		ngayCapNhat := ngayNhap
+		if row[10] != "" {
+			parsed, err := time.Parse(dateFmtDDMMYYYY, row[10])
+			if err == nil {
+				ngayCapNhat = parsed
+			}
 		}
 
 		product := domain.Product{
-			MaHang:     maVach,
-			TenSanPham: tenSanPham,
-			MaBu:       row[2],
-			MaCat:      row[3],
-			MaNhomHang: row[4],
-			NhomHang:   row[5],
-			DonViTinh:  row[6],
-			QuyCach:    row[7],
-			DonGia:     parseFloat(row[8]),
-			Vat:        parseFloat(row[9]),
-			GiaNiv:     parseFloat(row[10]),
-			GiaNhap:    parseFloat(row[11]),
-			// NgayCapNhat will be set after all rows are parsed
-			HoaHong: parseFloat(row[13]),
+			MaHang:      maVach,
+			TenSanPham:  tenSanPham,
+			MaBu:        row[2],
+			MaCat:       row[3],
+			MaNhomHang:  row[4],
+			NhomHang:    row[5],
+			DonViTinh:   row[6],
+			QuyCach:     quyCach,
+			DonGia:      donGia,
+			Vat:         vat,
+			GiaNiv:      giaNiv,
+			GiaNhap:     giaNhap,
+			NgayCapNhat: ngayCapNhat,
+			HoaHong:     hoaHong,
 		}
 
 		inventory := domain.InventoryMain{
 			MaHang:     maVach,
 			TenSanPham: tenSanPham,
-			SoTon:      parseFloat(row[16]),
-			SoNhap:     parseFloat(row[17]),
-			SoXuat:     parseFloat(row[18]),
-			TienTon:    parseFloat(row[19]),
-			TienNhap:   parseFloat(row[20]),
-			TienXuat:   parseFloat(row[21]),
+			SoTon:      soTon,
+			SoNhap:     soNhap,
+			SoXuat:     soXuat,
+			TienTon:    donGia * soTon,
+			TienNhap:   donGia * soNhap,
+			TienXuat:   donGia * soXuat,
 		}
 
 		inbound := domain.InboundItem{
@@ -142,7 +161,7 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			TenSanPham:   tenSanPham,
 			DonViTinh:    row[6],
 			QuyCach:      row[7],
-			SoLuong:      parseFloat(row[17]), // Số nhập = lot qty
+			SoLuong:      soNhap, // Số nhập = lot qty
 			BatchCode:    batchCode,
 			NgayNhanHang: ngayNhap,
 		}
@@ -152,14 +171,6 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			Inventory: inventory,
 			Inbound:   inbound,
 		})
-	}
-
-	// Set NgayCapNhat = max(ngày nhập) per mã vạch
-	for i := range results {
-		maVach := results[i].Product.MaHang
-		if maxDate, ok := maxDates[maVach]; ok {
-			results[i].Product.NgayCapNhat = maxDate
-		}
 	}
 
 	return results, parseErrors, nil
