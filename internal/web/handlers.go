@@ -1,6 +1,9 @@
 package web
 
 import (
+	"io"
+	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -208,15 +211,33 @@ func (h *Handlers) ImportFile(fileType string) gin.HandlerFunc {
 			return
 		}
 
-		// Save to temp
-		tempPath := "/tmp/wms_import_" + file.Filename
-		if err := c.SaveUploadedFile(file, tempPath); err != nil {
-			c.JSON(500, gin.H{"error": "failed to save file"})
+		// Save to temp file (avoid Gin's SaveUploadedFile which tries to chmod /tmp)
+		src, err := file.Open()
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to open uploaded file: " + err.Error()})
+			return
+		}
+		defer src.Close()
+
+		ext := filepath.Ext(file.Filename)
+		tmpFile, err := os.CreateTemp("", "wms_import_*"+ext)
+		if err != nil {
+			c.JSON(500, gin.H{"error": "failed to create temp file: " + err.Error()})
 			return
 		}
 
+		if _, err := io.Copy(tmpFile, src); err != nil {
+			tmpFile.Close()
+			os.Remove(tmpFile.Name())
+			c.JSON(500, gin.H{"error": "failed to write temp file: " + err.Error()})
+			return
+		}
+		tmpFile.Close()
+		tempPath := tmpFile.Name()
+
 		jobID, err := h.Import.EnqueueImport(c.Request.Context(), fileType, tempPath)
 		if err != nil {
+			os.Remove(tempPath)
 			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
