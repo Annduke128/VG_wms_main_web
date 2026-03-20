@@ -10,7 +10,7 @@ import (
 	"wms-v1/internal/domain"
 )
 
-const dateFormat = "01/02/2006" // MM/DD/YYYY
+const dateFormat = "02/01/2006" // DD/MM/YYYY
 
 // ParseProducts reads products from xlsx
 func ParseProducts(filePath string) ([]domain.Product, []string, error) {

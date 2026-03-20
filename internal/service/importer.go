@@ -40,7 +40,7 @@ func (s *ImportService) EnqueueImport(ctx context.Context, fileType string, file
 		items, _, _ := importer.ParseProducts(filePath)
 		totalRows = len(items)
 	case "inventory":
-		items, _, _ := importer.ParseInventory(filePath)
+		items, _, _ := importer.ParseInventoryFull(filePath)
 		totalRows = len(items)
 	case "inbound":
 		items, _, _ := importer.ParseInbound(filePath)
@@ -94,12 +94,12 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		success, err = s.Repo.UpsertProducts(ctx, products)
 
 	case "inventory":
-		items, errs, parseErr := importer.ParseInventory(payload.FilePath)
+		rows, errs, parseErr := importer.ParseInventoryFull(payload.FilePath)
 		if parseErr != nil {
 			return s.failBatch(ctx, payload.BatchID, parseErr)
 		}
 		parseErrors = errs
-		success, err = s.Repo.UpsertInventory(ctx, items)
+		success, err = s.Repo.ImportInventoryFull(ctx, rows)
 
 	case "inbound":
 		items, errs, parseErr := importer.ParseInbound(payload.FilePath)

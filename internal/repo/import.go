@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"wms-v1/internal/domain"
+	"wms-v1/internal/importer"
 )
 
 func (r *PostgresRepo) CreateImportBatch(ctx context.Context, fileType, fileName string, totalRows int) (int64, error) {
@@ -121,6 +122,83 @@ func (r *PostgresRepo) CreateAsyncJob(ctx context.Context, jobID, jobType, paylo
 		"INSERT INTO async_jobs (job_id, job_type, payload) VALUES ($1, $2, $3)",
 		jobID, jobType, payload)
 	return err
+}
+
+// ImportInventoryFull processes rows from the 22-column file:
+// 1. Upsert products (with NgayCapNhat = max ngày nhập per mã vạch)
+// 2. Upsert inventory_main
+// 3. Insert inbound_items (with batch_code)
+// 4. Upsert inventory_lots
+// Best-effort: each row independent, skip on error.
+func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.InventoryFullRow) (int, error) {
+	success := 0
+	for _, row := range rows {
+		// 1. Upsert product
+		_, err := r.Pool.Exec(ctx,
+			`INSERT INTO products (ma_hang, ten_san_pham, ma_bu, ma_cat, ma_nhom_hang, nhom_hang,
+			  don_vi_tinh, quy_cach, don_gia, vat, gia_niv, gia_nhap, ngay_cap_nhat, hoa_hong)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+			 ON CONFLICT (ma_hang) DO UPDATE SET
+			  ten_san_pham=EXCLUDED.ten_san_pham, ma_bu=EXCLUDED.ma_bu, ma_cat=EXCLUDED.ma_cat,
+			  ma_nhom_hang=EXCLUDED.ma_nhom_hang, nhom_hang=EXCLUDED.nhom_hang,
+			  don_vi_tinh=EXCLUDED.don_vi_tinh, quy_cach=EXCLUDED.quy_cach,
+			  don_gia=EXCLUDED.don_gia, vat=EXCLUDED.vat, gia_niv=EXCLUDED.gia_niv,
+			  gia_nhap=EXCLUDED.gia_nhap,
+			  ngay_cap_nhat=GREATEST(products.ngay_cap_nhat, EXCLUDED.ngay_cap_nhat),
+			  hoa_hong=EXCLUDED.hoa_hong`,
+			row.Product.MaHang, row.Product.TenSanPham, row.Product.MaBu, row.Product.MaCat,
+			row.Product.MaNhomHang, row.Product.NhomHang, row.Product.DonViTinh, row.Product.QuyCach,
+			row.Product.DonGia, row.Product.Vat, row.Product.GiaNiv, row.Product.GiaNhap,
+			row.Product.NgayCapNhat, row.Product.HoaHong)
+		if err != nil {
+			continue
+		}
+
+		// 2. Upsert inventory_main
+		_, err = r.Pool.Exec(ctx,
+			`INSERT INTO inventory_main (ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
+			  tien_ton, tien_nhap, tien_xuat)
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			 ON CONFLICT (ma_hang) DO UPDATE SET
+			  ten_san_pham=EXCLUDED.ten_san_pham, so_ton=EXCLUDED.so_ton,
+			  so_nhap=EXCLUDED.so_nhap, so_xuat=EXCLUDED.so_xuat,
+			  tien_ton=EXCLUDED.tien_ton, tien_nhap=EXCLUDED.tien_nhap,
+			  tien_xuat=EXCLUDED.tien_xuat`,
+			row.Inventory.MaHang, row.Inventory.TenSanPham, row.Inventory.SoTon,
+			row.Inventory.SoNhap, row.Inventory.SoXuat, row.Inventory.TienTon,
+			row.Inventory.TienNhap, row.Inventory.TienXuat)
+		if err != nil {
+			continue
+		}
+
+		// 3. Insert inbound_items
+		_, err = r.Pool.Exec(ctx,
+			`INSERT INTO inbound_items (ma_hang, ten_san_pham, don_vi_tinh, quy_cach,
+			  so_luong, doanh_so, chiet_khau, so_luong_tra_lai, doanh_thu, von,
+			  lai_gop, ti_le_lai_gop, ngay_nhan_hang, batch_code)
+			 VALUES ($1,$2,$3,$4,$5,0,0,0,0,0,0,0,$6,$7)`,
+			row.Inbound.MaHang, row.Inbound.TenSanPham, row.Inbound.DonViTinh,
+			row.Inbound.QuyCach, row.Inbound.SoLuong,
+			row.Inbound.NgayNhanHang, row.Inbound.BatchCode)
+		if err != nil {
+			continue
+		}
+
+		// 4. Upsert inventory_lots
+		_, err = r.Pool.Exec(ctx,
+			`INSERT INTO inventory_lots (ma_hang, batch_code, received_at, qty_in, qty_out, qty_remaining)
+			 VALUES ($1, $2, $3, $4, 0, $4)
+			 ON CONFLICT (ma_hang, batch_code) DO UPDATE SET
+			  qty_in = inventory_lots.qty_in + EXCLUDED.qty_in,
+			  qty_remaining = inventory_lots.qty_remaining + EXCLUDED.qty_in`,
+			row.Inbound.MaHang, row.Inbound.BatchCode, row.Inbound.NgayNhanHang, row.Inbound.SoLuong)
+		if err != nil {
+			continue
+		}
+
+		success++
+	}
+	return success, nil
 }
 
 // UpdateAsyncJob updates job status

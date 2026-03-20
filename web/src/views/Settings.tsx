@@ -171,13 +171,14 @@ export function Settings() {
 						color: "#3a3f4b",
 					}}
 				>
-					Import kho (inventory)
+					Import kho (gộp sản phẩm + tồn kho + lô)
 				</h3>
 				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
-					Upload file .xlsx (10 cột: ma_hang, ten_san_pham, so_ton, so_nhap,
-					so_xuat, tien_ton, tien_nhap, tien_xuat, so_ngay_ton,
-					luong_ban_binh_quan_ngay). Dữ liệu sẽ được upsert (thêm mới hoặc cập
-					nhật).
+					Upload file .xlsx (22 cột): Mã vạch, Tên sản phẩm, BU, Mã cat, Mã nhóm
+					hàng, Nhóm hàng, ĐVT, Quy cách, Đơn giá bán, VAT, Giá NIV, Đơn giá
+					nhập, Ngày cập nhật, Hoa hồng, Mã lô hàng, Ngày nhập, Số tồn, Số nhập,
+					Số xuất, Tiền tồn, Tiền nhập, Tiền xuất. Mỗi mã vạch có nhiều lô →
+					nhập nhiều dòng. Ngày dùng dd/mm/yyyy.
 				</p>
 				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 					<button
