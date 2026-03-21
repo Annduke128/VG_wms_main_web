@@ -46,3 +46,16 @@ export interface AsyncJob {
 	created_at: string;
 	updated_at: string;
 }
+
+export interface ImportBatch {
+	batch_id: number;
+	file_type: string;
+	file_name: string;
+	total_rows: number;
+	success_rows: number;
+	error_rows: number;
+	status: string;
+	errors: string; // JSON array of error strings
+	created_at: string;
+	completed_at: string | null;
+}

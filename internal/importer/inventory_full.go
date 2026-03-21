@@ -9,6 +9,7 @@ import (
 	"wms-v1/internal/domain"
 )
 
+// dateFmtDDMMYYYY kept for reference; actual parsing uses parseDateFlexible.
 const dateFmtDDMMYYYY = "02/01/2006" // dd/mm/yyyy
 
 // InventoryFullRow holds parsed data from a single row of the 17-column file.
@@ -84,22 +85,24 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			continue
 		}
 
-		batchCode := row[12]
-		if batchCode == "" {
-			parseErrors = append(parseErrors, fmt.Sprintf("row %d: mã lô hàng trống", rowNum))
-			continue
-		}
-
+		// --- Ngày nhập (flexible parsing) ---
 		ngayNhapStr := row[13]
+		var ngayNhap time.Time
 		if ngayNhapStr == "" {
 			parseErrors = append(parseErrors, fmt.Sprintf("row %d: ngày nhập trống", rowNum))
 			continue
 		}
-
-		ngayNhap, err := time.Parse(dateFmtDDMMYYYY, ngayNhapStr)
-		if err != nil {
-			parseErrors = append(parseErrors, fmt.Sprintf("row %d: ngày nhập không hợp lệ (%s), dùng dd/mm/yyyy", rowNum, ngayNhapStr))
+		parsedDate, _, dateErr := parseDateFlexible(ngayNhapStr)
+		if dateErr != nil {
+			parseErrors = append(parseErrors, fmt.Sprintf("row %d: ngày nhập không hợp lệ (%s), dùng dd/mm/yyyy hoặc dd-mm-yyyy hoặc dd-mm-yy", rowNum, ngayNhapStr))
 			continue
+		}
+		ngayNhap = parsedDate
+
+		// --- Mã lô hàng: auto-generate if empty ---
+		batchCode := row[12]
+		if batchCode == "" {
+			batchCode = fmt.Sprintf("LOT-%s-%s", maVach, ngayNhap.Format("20060102"))
 		}
 
 		tenSanPham := row[1]
@@ -122,7 +125,7 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 		// Ngày cập nhật: if file has value → use it; if empty → use ngày nhập
 		ngayCapNhat := ngayNhap
 		if row[10] != "" {
-			parsed, err := time.Parse(dateFmtDDMMYYYY, row[10])
+			parsed, _, err := parseDateFlexible(row[10])
 			if err == nil {
 				ngayCapNhat = parsed
 			}

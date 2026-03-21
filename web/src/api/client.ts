@@ -67,6 +67,13 @@ export const api = {
 		return res.blob();
 	},
 
+	getImportBatch: (batchId?: number) => {
+		const path = batchId
+			? `/import/batches/${batchId}`
+			: "/import/batches/latest";
+		return request(path);
+	},
+
 	// Dashboard
 	dashboardSummary: () => request("/dashboard/summary"),
 	dashboardCharts: (weeks = 4) => request(`/dashboard/charts?weeks=${weeks}`),

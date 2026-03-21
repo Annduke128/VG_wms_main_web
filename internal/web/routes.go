@@ -50,6 +50,8 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	api.POST("/import/inbound", h.ImportFile("inbound"))
 	api.POST("/import/outbound", h.ImportFile("outbound"))
 	api.GET("/import/inventory/template", h.DownloadInventoryTemplate)
+	api.GET("/import/batches/latest", h.GetImportBatch)
+	api.GET("/import/batches/:id", h.GetImportBatch)
 
 	// Dashboard
 	api.GET("/dashboard/summary", h.DashboardSummary)

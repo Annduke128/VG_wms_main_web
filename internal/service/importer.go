@@ -138,6 +138,11 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		return s.failBatch(ctx, payload.BatchID, err)
 	}
 
+	// Append warning if no rows succeeded
+	if success == 0 && len(parseErrors) > 0 {
+		parseErrors = append(parseErrors, "⚠ Không có dòng nào import thành công. Kiểm tra định dạng file.")
+	}
+
 	errJSON, _ := json.Marshal(parseErrors)
 	return s.Repo.UpdateImportBatch(ctx, payload.BatchID, success, len(parseErrors), "completed", string(errJSON))
 }

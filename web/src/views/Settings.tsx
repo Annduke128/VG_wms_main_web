@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { ThresholdEntry } from "../types/dashboard";
-import type { AsyncJob } from "../types/grid";
+import type { AsyncJob, ImportBatch } from "../types/grid";
 
 export function Settings() {
 	const [maHang, setMaHang] = useState("");
@@ -23,6 +23,8 @@ export function Settings() {
 	// Import state
 	const [uploading, setUploading] = useState(false);
 	const [importJob, setImportJob] = useState<AsyncJob | null>(null);
+	const [importBatch, setImportBatch] = useState<ImportBatch | null>(null);
+	const [showErrors, setShowErrors] = useState(false);
 	const fileRef = useRef<HTMLInputElement | null>(null);
 
 	const fetchHistory = useCallback(async (sku: string) => {
@@ -111,6 +113,8 @@ export function Settings() {
 
 		setUploading(true);
 		setImportJob(null);
+		setImportBatch(null);
+		setShowErrors(false);
 		try {
 			const res = (await api.importFile("inventory", input.files[0])) as {
 				job_id: string;
@@ -132,6 +136,14 @@ export function Settings() {
 				setImportJob(job);
 				if (job.status === "pending" || job.status === "running") {
 					setTimeout(poll, 1000);
+				} else {
+					// Job finished → fetch batch info for errors
+					try {
+						const batch = (await api.getImportBatch()) as ImportBatch;
+						setImportBatch(batch);
+					} catch {
+						// ignore if batch fetch fails
+					}
 				}
 			} catch {
 				console.error("Poll error");
@@ -178,7 +190,8 @@ export function Settings() {
 					hàng, Nhóm hàng, ĐVT, Quy cách, Đơn giá, VAT, Ngày cập nhật, Hoa hồng,
 					Mã lô hàng, Ngày nhập, Số tồn, Số nhập, Số xuất. Giá NIV, Đơn giá
 					nhập, Tiền tồn/nhập/xuất được tự động tính. Mỗi mã vạch có nhiều lô →
-					nhập nhiều dòng. Ngày dùng dd/mm/yyyy.
+					nhập nhiều dòng. Ngày dùng dd/mm/yyyy, dd-mm-yyyy, hoặc dd-mm-yy. Mã
+					lô hàng nếu để trống sẽ tự tạo LOT-&lt;mã vạch&gt;-&lt;yyyymmdd&gt;.
 				</p>
 				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 					<button
@@ -231,33 +244,163 @@ export function Settings() {
 							borderRadius: 5,
 							border: "1px solid #e8eaed",
 							fontSize: 12,
+							position: "relative",
 						}}
 					>
-						<span style={{ color: "#7a7f8e" }}>Trạng thái: </span>
-						<span
+						<div
 							style={{
-								fontWeight: 600,
-								color:
-									importJob.status === "completed"
-										? "#3a7d4f"
-										: importJob.status === "failed"
-											? "#b83b3b"
-											: "#7a7f8e",
+								display: "flex",
+								alignItems: "center",
+								justifyContent: "space-between",
 							}}
 						>
-							{importJob.status === "completed"
-								? "Hoàn tất"
-								: importJob.status === "failed"
-									? "Thất bại"
-									: importJob.status === "running"
-										? "Đang xử lý..."
-										: "Đang chờ..."}
-						</span>
-						{importJob.error && (
-							<span style={{ color: "#b83b3b", marginLeft: 8 }}>
-								{importJob.error}
-							</span>
-						)}
+							<div>
+								<span style={{ color: "#7a7f8e" }}>Trạng thái: </span>
+								<span
+									style={{
+										fontWeight: 600,
+										color:
+											importJob.status === "completed"
+												? "#3a7d4f"
+												: importJob.status === "failed"
+													? "#b83b3b"
+													: "#7a7f8e",
+									}}
+								>
+									{importJob.status === "completed"
+										? "Hoàn tất"
+										: importJob.status === "failed"
+											? "Thất bại"
+											: importJob.status === "running"
+												? "Đang xử lý..."
+												: "Đang chờ..."}
+								</span>
+								{importJob.error && (
+									<span style={{ color: "#b83b3b", marginLeft: 8 }}>
+										{importJob.error}
+									</span>
+								)}
+							</div>
+
+							{/* Error button */}
+							{importBatch &&
+								importBatch.error_rows > 0 &&
+								(() => {
+									let errors: string[] = [];
+									try {
+										errors = JSON.parse(importBatch.errors) as string[];
+									} catch {
+										/* empty */
+									}
+									if (errors.length === 0) return null;
+									const maxShow = 10;
+									const shown = errors.slice(0, maxShow);
+									const remaining = errors.length - maxShow;
+									return (
+										<div style={{ position: "relative" }}>
+											<button
+												onClick={() => setShowErrors((v) => !v)}
+												onMouseEnter={() => setShowErrors(true)}
+												onMouseLeave={() => {
+													// Don't hide if pinned (clicked)
+												}}
+												style={{
+													padding: "3px 10px",
+													background: "#fef3f2",
+													color: "#b83b3b",
+													border: "1px solid #fecaca",
+													borderRadius: 4,
+													cursor: "pointer",
+													fontSize: 11,
+													fontWeight: 500,
+												}}
+											>
+												Xem lỗi ({importBatch.error_rows})
+											</button>
+											{showErrors && (
+												<div
+													onMouseEnter={() => setShowErrors(true)}
+													onMouseLeave={() => setShowErrors(false)}
+													style={{
+														position: "absolute",
+														top: "calc(100% + 6px)",
+														right: 0,
+														width: 380,
+														maxHeight: 260,
+														overflowY: "auto",
+														background: "#fff",
+														border: "1px solid #e8eaed",
+														borderRadius: 6,
+														boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
+														padding: "10px 12px",
+														zIndex: 100,
+														fontSize: 11,
+														color: "#3a3f4b",
+													}}
+												>
+													{shown.map((err, i) => (
+														<div
+															key={i}
+															style={{
+																padding: "3px 0",
+																borderBottom:
+																	i < shown.length - 1
+																		? "1px solid #f2f3f5"
+																		: "none",
+																wordBreak: "break-word",
+															}}
+														>
+															{err}
+														</div>
+													))}
+													{remaining > 0 && (
+														<div
+															style={{
+																padding: "6px 0 0",
+																color: "#7a7f8e",
+																fontStyle: "italic",
+															}}
+														>
+															+{remaining} dòng khác
+														</div>
+													)}
+												</div>
+											)}
+										</div>
+									);
+								})()}
+						</div>
+
+						{/* Warning banner: 0 success rows */}
+						{importBatch &&
+							importBatch.success_rows === 0 &&
+							importBatch.error_rows > 0 && (
+								<div
+									style={{
+										marginTop: 8,
+										padding: "8px 12px",
+										background: "#fef9c3",
+										border: "1px solid #fde68a",
+										borderRadius: 4,
+										fontSize: 11,
+										color: "#92400e",
+										fontWeight: 500,
+									}}
+								>
+									Không có dòng nào import thành công. Kiểm tra định dạng file
+									và dữ liệu.
+								</div>
+							)}
+
+						{/* Summary row */}
+						{importBatch &&
+							(importJob.status === "completed" ||
+								importJob.status === "failed") && (
+								<div style={{ marginTop: 6, fontSize: 11, color: "#7a7f8e" }}>
+									Tổng: {importBatch.total_rows} | Thành công:{" "}
+									{importBatch.success_rows} | Lỗi: {importBatch.error_rows}
+								</div>
+							)}
 					</div>
 				)}
 			</div>

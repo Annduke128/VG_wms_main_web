@@ -415,6 +415,33 @@ func (h *Handlers) GetThresholds(c *gin.Context) {
 	c.JSON(200, thresholds)
 }
 
+func (h *Handlers) GetImportBatch(c *gin.Context) {
+	idStr := c.Param("id")
+	if idStr == "" {
+		// No ID → get latest
+		batch, err := h.Import.Repo.GetLatestImportBatch(c.Request.Context())
+		if err != nil {
+			c.JSON(404, gin.H{"error": "no import batches found"})
+			return
+		}
+		c.JSON(200, batch)
+		return
+	}
+
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid batch id"})
+		return
+	}
+
+	batch, err := h.Import.Repo.GetImportBatch(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(404, gin.H{"error": "batch not found"})
+		return
+	}
+	c.JSON(200, batch)
+}
+
 // --- Template Download ---
 
 func (h *Handlers) DownloadInventoryTemplate(c *gin.Context) {

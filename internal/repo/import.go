@@ -201,6 +201,34 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 	return success, nil
 }
 
+// GetImportBatch retrieves import batch by ID
+func (r *PostgresRepo) GetImportBatch(ctx context.Context, batchID int64) (*domain.ImportBatch, error) {
+	var b domain.ImportBatch
+	err := r.Pool.QueryRow(ctx,
+		`SELECT batch_id, file_type, file_name, total_rows, success_rows, error_rows, status, errors, created_at, completed_at
+		 FROM import_batches WHERE batch_id=$1`, batchID).Scan(
+		&b.BatchID, &b.FileType, &b.FileName, &b.TotalRows, &b.SuccessRows,
+		&b.ErrorRows, &b.Status, &b.Errors, &b.CreatedAt, &b.CompletedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get import batch %d: %w", batchID, err)
+	}
+	return &b, nil
+}
+
+// GetLatestImportBatch retrieves the most recent import batch
+func (r *PostgresRepo) GetLatestImportBatch(ctx context.Context) (*domain.ImportBatch, error) {
+	var b domain.ImportBatch
+	err := r.Pool.QueryRow(ctx,
+		`SELECT batch_id, file_type, file_name, total_rows, success_rows, error_rows, status, errors, created_at, completed_at
+		 FROM import_batches ORDER BY batch_id DESC LIMIT 1`).Scan(
+		&b.BatchID, &b.FileType, &b.FileName, &b.TotalRows, &b.SuccessRows,
+		&b.ErrorRows, &b.Status, &b.Errors, &b.CreatedAt, &b.CompletedAt)
+	if err != nil {
+		return nil, fmt.Errorf("get latest import batch: %w", err)
+	}
+	return &b, nil
+}
+
 // UpdateAsyncJob updates job status
 func (r *PostgresRepo) UpdateAsyncJob(ctx context.Context, jobID, status, result, errMsg string) error {
 	_, err := r.Pool.Exec(ctx,

@@ -174,9 +174,30 @@ func parseFloat(s string) float64 {
 }
 
 func parseDate(s string) time.Time {
-	t, err := time.Parse(dateFormat, s)
+	t, _, err := parseDateFlexible(s)
 	if err != nil {
 		return time.Now()
 	}
 	return t
+}
+
+// parseDateFlexible accepts dd/mm/yyyy, dd-mm-yyyy, dd-mm-yy.
+// Returns parsed time, whether it was valid, and error if unparseable.
+func parseDateFlexible(s string) (time.Time, bool, error) {
+	if s == "" {
+		return time.Time{}, false, fmt.Errorf("empty date")
+	}
+	formats := []string{
+		"02/01/2006", // dd/mm/yyyy
+		"02-01-2006", // dd-mm-yyyy
+		"02-01-06",   // dd-mm-yy
+		"02/01/06",   // dd/mm/yy (bonus)
+	}
+	for _, f := range formats {
+		t, err := time.Parse(f, s)
+		if err == nil {
+			return t, true, nil
+		}
+	}
+	return time.Time{}, false, fmt.Errorf("invalid date: %s", s)
 }
