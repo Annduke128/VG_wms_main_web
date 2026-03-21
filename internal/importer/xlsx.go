@@ -191,7 +191,9 @@ func parseDateFlexible(s string) (time.Time, bool, error) {
 		"02/01/2006", // dd/mm/yyyy
 		"02-01-2006", // dd-mm-yyyy
 		"02-01-06",   // dd-mm-yy
-		"02/01/06",   // dd/mm/yy (bonus)
+		"02/01/06",   // dd/mm/yy
+		"2/1/2006",   // d/m/yyyy
+		"2-1-2006",   // d-m-yyyy
 	}
 	for _, f := range formats {
 		t, err := time.Parse(f, s)
