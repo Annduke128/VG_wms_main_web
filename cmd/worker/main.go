@@ -56,7 +56,7 @@ func main() {
 		return impService.ProcessImport(ctx, payload)
 	})
 
-	// Process bulk update queue
+	// Process bulk update queue (with recalc after each item)
 	go processQueue(ctx, rq, pg, queue.QueueBulkUpdate, func(job queue.Job) error {
 		var req domain.BulkUpdateRequest
 		if err := json.Unmarshal(job.Payload, &req); err != nil {
@@ -65,8 +65,28 @@ func main() {
 		for _, item := range req.Updates {
 			if err := pg.UpdateInventoryItem(ctx, item.MaHang, item.Fields); err != nil {
 				log.Printf("bulk update error for %s: %v", item.MaHang, err)
+				continue
+			}
+			// Recalc metrics immediately after each update
+			if err := pg.RecalcMetricsForSKU(ctx, item.MaHang); err != nil {
+				log.Printf("recalc error for %s: %v", item.MaHang, err)
 			}
 		}
+		return nil
+	})
+
+	// Process recalc-all queue
+	go processQueue(ctx, rq, pg, queue.QueueRecalc, func(job queue.Job) error {
+		log.Println("Starting recalc-all metrics...")
+		skus, err := pg.GetAllSKUs(ctx)
+		if err != nil {
+			return err
+		}
+		log.Printf("Recalculating metrics for %d SKUs...", len(skus))
+		if err := pg.RecalcMetricsForSKUs(ctx, skus); err != nil {
+			return err
+		}
+		log.Printf("Recalc-all completed for %d SKUs", len(skus))
 		return nil
 	})
 

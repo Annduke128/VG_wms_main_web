@@ -99,6 +99,16 @@ export const api = {
 	createOrder: (body: unknown) =>
 		request("/orders", { method: "POST", body: JSON.stringify(body) }),
 
+	// Admin
+	recalcAll: () =>
+		request<{ job_id: string }>("/inventory/recalc-all", { method: "POST" }),
+
+	resetAll: (confirmText: string) =>
+		request("/admin/reset-all", {
+			method: "POST",
+			body: JSON.stringify({ confirm_text: confirmText }),
+		}),
+
 	// Thresholds
 	getThresholds: (maHang?: string) => {
 		const params = maHang ? `?ma_hang=${encodeURIComponent(maHang)}` : "";

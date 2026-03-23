@@ -27,6 +27,16 @@ export function Settings() {
 	const [showErrors, setShowErrors] = useState(false);
 	const fileRef = useRef<HTMLInputElement | null>(null);
 
+	// Recalc state
+	const [recalcJob, setRecalcJob] = useState<AsyncJob | null>(null);
+	const [recalcLoading, setRecalcLoading] = useState(false);
+
+	// Reset state
+	const [showResetModal, setShowResetModal] = useState(false);
+	const [resetConfirmText, setResetConfirmText] = useState("");
+	const [resetting, setResetting] = useState(false);
+	const [resetResult, setResetResult] = useState<string | null>(null);
+
 	const fetchHistory = useCallback(async (sku: string) => {
 		if (!sku) {
 			setHistory([]);
@@ -151,6 +161,52 @@ export function Settings() {
 		};
 		poll();
 	}, []);
+
+	// --- Recalc handler ---
+	const handleRecalcAll = useCallback(async () => {
+		setRecalcLoading(true);
+		setRecalcJob(null);
+		try {
+			const res = await api.recalcAll();
+			// Poll recalc job
+			const pollRecalc = async () => {
+				try {
+					const job = (await api.getJob(res.job_id)) as AsyncJob;
+					setRecalcJob(job);
+					if (job.status === "pending" || job.status === "running") {
+						setTimeout(pollRecalc, 1500);
+					} else {
+						setRecalcLoading(false);
+					}
+				} catch {
+					setRecalcLoading(false);
+				}
+			};
+			pollRecalc();
+		} catch (err) {
+			alert(
+				`Recalc thất bại: ${err instanceof Error ? err.message : "Unknown"}`,
+			);
+			setRecalcLoading(false);
+		}
+	}, []);
+
+	// --- Reset handler ---
+	const handleResetAll = useCallback(async () => {
+		if (resetConfirmText !== "RESET ALL") return;
+		setResetting(true);
+		setResetResult(null);
+		try {
+			await api.resetAll(resetConfirmText);
+			setResetResult("Đã reset toàn bộ dữ liệu thành công.");
+			setShowResetModal(false);
+			setResetConfirmText("");
+		} catch (err) {
+			setResetResult(`Lỗi: ${err instanceof Error ? err.message : "Unknown"}`);
+		} finally {
+			setResetting(false);
+		}
+	}, [resetConfirmText]);
 
 	return (
 		<div>
@@ -667,6 +723,224 @@ export function Settings() {
 					</table>
 				)}
 			</div>
+
+			{/* --- Recalc All Metrics --- */}
+			<div
+				style={{
+					background: "#fff",
+					borderRadius: 8,
+					padding: 20,
+					border: "1px solid #e8eaed",
+					marginTop: 20,
+				}}
+			>
+				<h3
+					style={{
+						margin: "0 0 8px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#3a3f4b",
+					}}
+				>
+					Tính lại toàn bộ metrics
+				</h3>
+				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
+					Tính lại tiền tồn/nhập/xuất, LBBQ, số ngày tồn bán cho tất cả SKU.
+					Dùng khi dữ liệu đơn giá thay đổi hoặc metrics bị lệch.
+				</p>
+				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+					<button
+						onClick={handleRecalcAll}
+						disabled={recalcLoading}
+						style={{
+							padding: "7px 16px",
+							background: "#2563eb",
+							color: "#fff",
+							border: "none",
+							borderRadius: 5,
+							cursor: recalcLoading ? "not-allowed" : "pointer",
+							fontSize: 12,
+							fontWeight: 500,
+						}}
+					>
+						{recalcLoading ? "Đang tính..." : "Recalc toàn bộ"}
+					</button>
+					{recalcJob && (
+						<span
+							style={{
+								fontSize: 12,
+								fontWeight: 500,
+								color:
+									recalcJob.status === "completed"
+										? "#3a7d4f"
+										: recalcJob.status === "failed"
+											? "#b83b3b"
+											: "#7a7f8e",
+							}}
+						>
+							{recalcJob.status === "completed"
+								? "Hoàn tất"
+								: recalcJob.status === "failed"
+									? `Thất bại: ${recalcJob.error || ""}`
+									: "Đang xử lý..."}
+						</span>
+					)}
+				</div>
+			</div>
+
+			{/* --- Reset All Data --- */}
+			<div
+				style={{
+					background: "#fff",
+					borderRadius: 8,
+					padding: 20,
+					border: "1px solid #fecaca",
+					marginTop: 20,
+				}}
+			>
+				<h3
+					style={{
+						margin: "0 0 8px",
+						fontSize: 13,
+						fontWeight: 600,
+						color: "#b83b3b",
+					}}
+				>
+					Reset toàn bộ dữ liệu
+				</h3>
+				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
+					Xóa toàn bộ dữ liệu trong database (sản phẩm, tồn kho, nhập/xuất, lô
+					hàng, kanban, đơn hàng, ngưỡng...). Hành động này không thể hoàn tác.
+				</p>
+				<button
+					onClick={() => {
+						setShowResetModal(true);
+						setResetConfirmText("");
+						setResetResult(null);
+					}}
+					style={{
+						padding: "7px 16px",
+						background: "#b83b3b",
+						color: "#fff",
+						border: "none",
+						borderRadius: 5,
+						cursor: "pointer",
+						fontSize: 12,
+						fontWeight: 500,
+					}}
+				>
+					Reset toàn bộ
+				</button>
+				{resetResult && (
+					<div
+						style={{
+							marginTop: 8,
+							fontSize: 12,
+							fontWeight: 500,
+							color: resetResult.startsWith("Lỗi") ? "#b83b3b" : "#3a7d4f",
+						}}
+					>
+						{resetResult}
+					</div>
+				)}
+			</div>
+
+			{/* Reset Confirmation Modal */}
+			{showResetModal && (
+				<div
+					style={{
+						position: "fixed",
+						inset: 0,
+						background: "rgba(0,0,0,0.4)",
+						display: "flex",
+						alignItems: "center",
+						justifyContent: "center",
+						zIndex: 1000,
+					}}
+					onClick={() => setShowResetModal(false)}
+				>
+					<div
+						style={{
+							background: "#fff",
+							borderRadius: 10,
+							padding: 28,
+							width: 420,
+							maxWidth: "90vw",
+							boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+						}}
+						onClick={(e) => e.stopPropagation()}
+					>
+						<h3
+							style={{
+								margin: "0 0 10px",
+								fontSize: 15,
+								fontWeight: 700,
+								color: "#b83b3b",
+							}}
+						>
+							Xác nhận reset
+						</h3>
+						<p style={{ fontSize: 12, color: "#3a3f4b", marginBottom: 16 }}>
+							Hành động này sẽ <strong>xóa toàn bộ</strong> dữ liệu trong
+							database. Không thể hoàn tác.
+						</p>
+						<p style={{ fontSize: 12, color: "#3a3f4b", marginBottom: 8 }}>
+							Gõ <strong>RESET ALL</strong> để xác nhận:
+						</p>
+						<input
+							value={resetConfirmText}
+							onChange={(e) => setResetConfirmText(e.target.value)}
+							placeholder="RESET ALL"
+							style={{
+								...inputStyle,
+								width: "100%",
+								marginBottom: 16,
+								borderColor:
+									resetConfirmText === "RESET ALL" ? "#3a7d4f" : "#d5d8de",
+							}}
+						/>
+						<div
+							style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}
+						>
+							<button
+								onClick={() => setShowResetModal(false)}
+								style={{
+									padding: "7px 16px",
+									background: "#fff",
+									color: "#3a3f4b",
+									border: "1px solid #d5d8de",
+									borderRadius: 5,
+									cursor: "pointer",
+									fontSize: 12,
+									fontWeight: 500,
+								}}
+							>
+								Hủy
+							</button>
+							<button
+								onClick={handleResetAll}
+								disabled={resetConfirmText !== "RESET ALL" || resetting}
+								style={{
+									padding: "7px 16px",
+									background:
+										resetConfirmText === "RESET ALL" ? "#b83b3b" : "#e8eaed",
+									color: resetConfirmText === "RESET ALL" ? "#fff" : "#7a7f8e",
+									border: "none",
+									borderRadius: 5,
+									cursor:
+										resetConfirmText === "RESET ALL" && !resetting
+											? "pointer"
+											: "not-allowed",
+									fontSize: 12,
+									fontWeight: 500,
+								}}
+							>
+								{resetting ? "Đang reset..." : "Xác nhận reset"}
+							</button>
+						</div>
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

@@ -1,15 +1,18 @@
 package web
 
 import (
+	"encoding/json"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"wms-v1/internal/domain"
 	"wms-v1/internal/importer"
+	"wms-v1/internal/queue"
 	"wms-v1/internal/service"
 )
 
@@ -19,10 +22,11 @@ type Handlers struct {
 	Import    *service.ImportService
 	Orders    *service.OrderService
 	Dashboard *service.DashboardService
+	Queue     *queue.RedisQueue
 }
 
-func NewHandlers(inv *service.InventoryService, kan *service.KanbanService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService) *Handlers {
-	return &Handlers{Inventory: inv, Kanban: kan, Import: imp, Orders: ord, Dashboard: dash}
+func NewHandlers(inv *service.InventoryService, kan *service.KanbanService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, q *queue.RedisQueue) *Handlers {
+	return &Handlers{Inventory: inv, Kanban: kan, Import: imp, Orders: ord, Dashboard: dash, Queue: q}
 }
 
 // --- Inventory Grid ---
@@ -468,4 +472,51 @@ func (h *Handlers) SaveThreshold(c *gin.Context) {
 		return
 	}
 	c.JSON(201, threshold)
+}
+
+// --- Recalc All Metrics ---
+
+func (h *Handlers) RecalcAllMetrics(c *gin.Context) {
+	jobID := uuid.New().String()
+
+	if err := h.Import.Repo.CreateAsyncJob(c.Request.Context(), jobID, "recalc_all_metrics", "{}"); err != nil {
+		c.JSON(500, gin.H{"error": "failed to create job: " + err.Error()})
+		return
+	}
+
+	job := queue.Job{
+		ID:      jobID,
+		Type:    "recalc_all",
+		Payload: json.RawMessage(`{}`),
+	}
+	if err := h.Queue.Enqueue(c.Request.Context(), queue.QueueRecalc, job); err != nil {
+		c.JSON(500, gin.H{"error": "failed to enqueue job: " + err.Error()})
+		return
+	}
+
+	c.JSON(202, gin.H{"job_id": jobID})
+}
+
+// --- Reset All Data ---
+
+func (h *Handlers) ResetAllData(c *gin.Context) {
+	var req struct {
+		ConfirmText string `json:"confirm_text"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	if req.ConfirmText != "RESET ALL" {
+		c.JSON(400, gin.H{"error": "Vui lòng nhập đúng cụm từ xác nhận: RESET ALL"})
+		return
+	}
+
+	if err := h.Import.Repo.ResetAllData(c.Request.Context()); err != nil {
+		c.JSON(500, gin.H{"error": "reset failed: " + err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"status": "ok", "message": "Đã xóa toàn bộ dữ liệu thành công"})
 }

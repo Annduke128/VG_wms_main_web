@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/google/uuid"
 
@@ -25,7 +26,15 @@ func (s *InventoryService) GridQuery(ctx context.Context, req domain.GridRequest
 }
 
 func (s *InventoryService) UpdateItem(ctx context.Context, maHang string, fields map[string]interface{}) error {
-	return s.Repo.UpdateInventoryItem(ctx, maHang, fields)
+	if err := s.Repo.UpdateInventoryItem(ctx, maHang, fields); err != nil {
+		return err
+	}
+
+	// Recalc metrics after grid edit
+	if recalcErr := s.Repo.RecalcMetricsForSKU(ctx, maHang); recalcErr != nil {
+		fmt.Printf("WARN: recalc after grid edit for %s: %v\n", maHang, recalcErr)
+	}
+	return nil
 }
 
 func (s *InventoryService) BulkUpdate(ctx context.Context, req domain.BulkUpdateRequest) (string, error) {

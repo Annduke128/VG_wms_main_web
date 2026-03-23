@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"wms-v1/internal/domain"
 	"wms-v1/internal/repo"
@@ -26,7 +27,19 @@ func (s *KanbanService) CreateInbound(ctx context.Context, req domain.CreateKanb
 }
 
 func (s *KanbanService) MoveInbound(ctx context.Context, id int64, toStage, userID string) error {
-	return s.Repo.MoveKanbanInbound(ctx, id, toStage, userID)
+	maHang, err := s.Repo.MoveKanbanInbound(ctx, id, toStage, userID)
+	if err != nil {
+		return err
+	}
+
+	// Recalc metrics after inbound reaches "da_ve_hang" (inventory changed)
+	if toStage == domain.InboundStageDaVeHang && maHang != "" {
+		if recalcErr := s.Repo.RecalcMetricsForSKU(ctx, maHang); recalcErr != nil {
+			fmt.Printf("WARN: recalc after kanban inbound for %s: %v\n", maHang, recalcErr)
+		}
+	}
+
+	return nil
 }
 
 // --- Outbound ---
@@ -41,5 +54,17 @@ func (s *KanbanService) CreateOutbound(ctx context.Context, req domain.CreateKan
 
 // MoveOutbound returns negativeAlert=true if stock went negative
 func (s *KanbanService) MoveOutbound(ctx context.Context, id int64, toStage, userID string) (bool, error) {
-	return s.Repo.MoveKanbanOutbound(ctx, id, toStage, userID)
+	maHang, negativeAlert, err := s.Repo.MoveKanbanOutbound(ctx, id, toStage, userID)
+	if err != nil {
+		return false, err
+	}
+
+	// Recalc metrics after outbound reaches "da_giao" (inventory changed)
+	if toStage == domain.OutboundStageDaGiao && maHang != "" {
+		if recalcErr := s.Repo.RecalcMetricsForSKU(ctx, maHang); recalcErr != nil {
+			fmt.Printf("WARN: recalc after kanban outbound for %s: %v\n", maHang, recalcErr)
+		}
+	}
+
+	return negativeAlert, nil
 }

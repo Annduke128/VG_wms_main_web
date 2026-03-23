@@ -93,6 +93,14 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		_ = items
 		success, err = s.Repo.UpsertProducts(ctx, products)
 
+		// Recalc ALL SKUs since don_gia may have changed
+		if err == nil {
+			allSKUs, _ := s.Repo.GetAllSKUs(ctx)
+			if len(allSKUs) > 0 {
+				_ = s.Repo.RecalcMetricsForSKUs(ctx, allSKUs)
+			}
+		}
+
 	case "inventory":
 		rows, errs, parseErr := importer.ParseInventoryFull(payload.FilePath)
 		if parseErr != nil {
@@ -122,6 +130,19 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		parseErrors = errs
 		success, err = s.Repo.InsertInboundItems(ctx, items)
 
+		// Recalc metrics for imported inbound SKUs
+		if err == nil && len(items) > 0 {
+			seen := make(map[string]bool)
+			var maHangs []string
+			for _, item := range items {
+				if !seen[item.MaHang] {
+					seen[item.MaHang] = true
+					maHangs = append(maHangs, item.MaHang)
+				}
+			}
+			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
+		}
+
 	case "outbound":
 		items, errs, parseErr := importer.ParseOutbound(payload.FilePath)
 		if parseErr != nil {
@@ -129,6 +150,19 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		}
 		parseErrors = errs
 		success, err = s.Repo.InsertOutboundItems(ctx, items)
+
+		// Recalc metrics for imported outbound SKUs
+		if err == nil && len(items) > 0 {
+			seen := make(map[string]bool)
+			var maHangs []string
+			for _, item := range items {
+				if !seen[item.MaHang] {
+					seen[item.MaHang] = true
+					maHangs = append(maHangs, item.MaHang)
+				}
+			}
+			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
+		}
 
 	default:
 		return fmt.Errorf("unknown file type: %s", payload.FileType)

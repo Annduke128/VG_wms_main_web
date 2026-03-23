@@ -7,6 +7,25 @@ import (
 	"time"
 )
 
+// GetAllSKUs returns all ma_hang from inventory_main.
+func (r *PostgresRepo) GetAllSKUs(ctx context.Context) ([]string, error) {
+	rows, err := r.Pool.Query(ctx, "SELECT ma_hang FROM inventory_main")
+	if err != nil {
+		return nil, fmt.Errorf("get all SKUs: %w", err)
+	}
+	defer rows.Close()
+
+	var skus []string
+	for rows.Next() {
+		var sku string
+		if err := rows.Scan(&sku); err != nil {
+			continue
+		}
+		skus = append(skus, sku)
+	}
+	return skus, nil
+}
+
 // RecalcMetricsForSKU recalculates so_ngay_ton, luong_ban_binh_quan_ngay (nullable),
 // so_ngay_ton_ban, and tien_ton/tien_nhap/tien_xuat for a single SKU.
 func (r *PostgresRepo) RecalcMetricsForSKU(ctx context.Context, maHang string) error {

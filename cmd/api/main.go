@@ -45,7 +45,7 @@ func main() {
 	dashService := service.NewDashboardService(pg)
 
 	// Init handlers
-	handlers := web.NewHandlers(invService, kanService, impService, ordService, dashService)
+	handlers := web.NewHandlers(invService, kanService, impService, ordService, dashService, rq)
 
 	// Setup Gin router
 	router := web.SetupRoutes(handlers)

@@ -71,6 +71,10 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	api.GET("/thresholds", h.GetThresholds)
 	api.POST("/thresholds", h.SaveThreshold)
 
+	// Admin
+	api.POST("/inventory/recalc-all", h.RecalcAllMetrics)
+	api.POST("/admin/reset-all", h.ResetAllData)
+
 	// Serve static frontend (production)
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

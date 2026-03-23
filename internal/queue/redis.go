@@ -12,6 +12,7 @@ import (
 const (
 	QueueImport     = "wms:queue:import"
 	QueueBulkUpdate = "wms:queue:bulk_update"
+	QueueRecalc     = "wms:queue:recalc"
 )
 
 type Job struct {
