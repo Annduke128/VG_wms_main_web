@@ -45,6 +45,12 @@ docker-compose.override.yml
 *.cpu
 *.mem
 
+# ==== Go compiled binaries (root level) ====
+# Built by: go build -o api ./cmd/api && go build -o worker ./cmd/worker
+# For deployment, build fresh: make build (outputs to bin/)
+/api
+/worker
+
 # ==== Upload temp ====
 uploads/
 *.xlsx.tmp
