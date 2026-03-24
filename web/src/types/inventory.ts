@@ -10,4 +10,8 @@ export interface InventoryMain {
 	so_ngay_ton: number;
 	luong_ban_binh_quan_ngay: number;
 	so_ngay_ton_ban: number;
+	// Joined from products table via inventory_grid view
+	don_gia: number;
+	ma_bu: string;
+	ma_nhom_hang: string;
 }

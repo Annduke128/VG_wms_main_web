@@ -30,6 +30,8 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	api.POST("/inventory/grid", h.InventoryGrid)
 	api.PATCH("/inventory/:ma_hang", h.UpdateInventoryItem)
 	api.POST("/inventory/bulk-update", h.BulkUpdateInventory)
+	api.GET("/inventory/filter-options", h.InventoryFilterOptions)
+	api.POST("/inventory/export", h.ExportInventory)
 
 	// Jobs
 	api.GET("/jobs/:id", h.GetJob)

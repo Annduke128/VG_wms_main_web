@@ -2,10 +2,12 @@ package web
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -519,4 +521,59 @@ func (h *Handlers) ResetAllData(c *gin.Context) {
 	}
 
 	c.JSON(200, gin.H{"status": "ok", "message": "Đã xóa toàn bộ dữ liệu thành công"})
+}
+
+// --- Inventory Filter Options ---
+
+func (h *Handlers) InventoryFilterOptions(c *gin.Context) {
+	opts, err := h.Inventory.GetFilterOptions(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, opts)
+}
+
+// --- Export Inventory ---
+
+func (h *Handlers) ExportInventory(c *gin.Context) {
+	var req struct {
+		MaHang      []string                     `json:"ma_hang"`
+		Columns     []string                     `json:"columns"`
+		FilterModel map[string]domain.FilterItem `json:"filter_model"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	// Filter to only valid columns
+	var cols []string
+	for _, col := range req.Columns {
+		if importer.ValidExportColumns[col] {
+			cols = append(cols, col)
+		}
+	}
+	if len(cols) == 0 {
+		c.JSON(400, gin.H{"error": "no valid columns specified"})
+		return
+	}
+
+	// Query data
+	rows, err := h.Inventory.ExportRows(c.Request.Context(), req.MaHang, req.FilterModel)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Build Excel
+	data, err := importer.BuildExportExcel(rows, cols)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "failed to generate Excel: " + err.Error()})
+		return
+	}
+
+	filename := fmt.Sprintf("BaoCaoTonKho_%s.xlsx", time.Now().Format("20060102"))
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+	c.Data(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data)
 }

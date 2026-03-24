@@ -31,6 +31,10 @@ type InventoryMain struct {
 	SoNgayTon            float64 `json:"so_ngay_ton" db:"so_ngay_ton"`
 	LuongBanBinhQuanNgay float64 `json:"luong_ban_binh_quan_ngay" db:"luong_ban_binh_quan_ngay"`
 	SoNgayTonBan         float64 `json:"so_ngay_ton_ban" db:"so_ngay_ton_ban"`
+	// Joined from products table via inventory_grid view
+	DonGia     float64 `json:"don_gia" db:"don_gia"`
+	MaBu       string  `json:"ma_bu" db:"ma_bu"`
+	MaNhomHang string  `json:"ma_nhom_hang" db:"ma_nhom_hang"`
 }
 
 type InboundItem struct {

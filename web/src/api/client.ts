@@ -109,6 +109,34 @@ export const api = {
 			body: JSON.stringify({ confirm_text: confirmText }),
 		}),
 
+	// Filter options for inventory grid
+	inventoryFilterOptions: () =>
+		request<{ ma_bu: string[]; ma_nhom_hang: string[] }>(
+			"/inventory/filter-options",
+		),
+
+	// Export inventory to Excel
+	exportInventory: async (
+		maHangs: string[],
+		columns: string[],
+		filterModel?: Record<string, unknown>,
+	) => {
+		const res = await fetch(`${API_BASE}/inventory/export`, {
+			method: "POST",
+			headers: { "Content-Type": "application/json" },
+			body: JSON.stringify({
+				ma_hang: maHangs,
+				columns,
+				filter_model: filterModel || {},
+			}),
+		});
+		if (!res.ok) {
+			const err = await res.json().catch(() => ({ error: res.statusText }));
+			throw new Error((err as { error?: string }).error || "Export failed");
+		}
+		return res.blob();
+	},
+
 	// Thresholds
 	getThresholds: (maHang?: string) => {
 		const params = maHang ? `?ma_hang=${encodeURIComponent(maHang)}` : "";

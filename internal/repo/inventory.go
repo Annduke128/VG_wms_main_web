@@ -13,14 +13,15 @@ import (
 // QueryInventoryGrid executes the grid query and returns results.
 // Wraps the builder query to COALESCE nullable columns (luong_ban_binh_quan_ngay, so_ngay_ton_ban).
 func (r *PostgresRepo) QueryInventoryGrid(ctx context.Context, req domain.GridRequest) (*domain.GridResponse, error) {
-	rawDataQuery, countQuery, args := grid.BuildQuery("inventory_main", req)
+	rawDataQuery, countQuery, args := grid.BuildQuery("inventory_grid", req)
 
 	// Wrap to COALESCE nullable columns so pgx can scan into float64
 	dataQuery := fmt.Sprintf(
 		`SELECT ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
 		        tien_ton, tien_nhap, tien_xuat, so_ngay_ton,
 		        COALESCE(luong_ban_binh_quan_ngay, 0) AS luong_ban_binh_quan_ngay,
-		        COALESCE(so_ngay_ton_ban, 0) AS so_ngay_ton_ban
+		        COALESCE(so_ngay_ton_ban, 0) AS so_ngay_ton_ban,
+		        don_gia, ma_bu, ma_nhom_hang
 		 FROM (%s) _sub`, rawDataQuery)
 
 	// Get total count
@@ -55,7 +56,7 @@ func (r *PostgresRepo) UpdateInventoryItem(ctx context.Context, maHang string, f
 	idx := 1
 
 	for col, val := range fields {
-		if !grid.AllowedColumns[col] {
+		if !grid.AllowedUpdateColumns[col] {
 			continue
 		}
 		setClauses = append(setClauses, fmt.Sprintf("%s = $%d", col, idx))

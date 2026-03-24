@@ -480,7 +480,7 @@ export function Settings() {
 						color: "#3a3f4b",
 					}}
 				>
-					Nhập ngưỡng mới
+					Điều chỉnh thông tin hàng hóa
 				</h3>
 				<div
 					style={{
@@ -498,7 +498,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Min qty" required>
+					<Field label="Số lượng tối thiểu" required>
 						<input
 							type="number"
 							value={minQty}
@@ -510,7 +510,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Optimal qty" required>
+					<Field label="Số lượng tối ưu" required>
 						<input
 							type="number"
 							value={optimalQty}
@@ -522,7 +522,7 @@ export function Settings() {
 							style={inputStyle}
 						/>
 					</Field>
-					<Field label="Max age (ngày)" required>
+					<Field label="Số ngày tồn tối đa" required>
 						<input
 							type="number"
 							value={maxAgeDays}
@@ -641,7 +641,7 @@ export function Settings() {
 										fontWeight: 500,
 									}}
 								>
-									Min qty
+									SL tối thiểu
 								</th>
 								<th
 									style={{
@@ -650,7 +650,7 @@ export function Settings() {
 										fontWeight: 500,
 									}}
 								>
-									Optimal qty
+									SL tối ưu
 								</th>
 								<th
 									style={{
@@ -659,7 +659,7 @@ export function Settings() {
 										fontWeight: 500,
 									}}
 								>
-									Max age
+									Ngày tồn tối đa
 								</th>
 								<th
 									style={{
@@ -668,7 +668,7 @@ export function Settings() {
 										fontWeight: 500,
 									}}
 								>
-									Source
+									Nguồn
 								</th>
 								<th
 									style={{

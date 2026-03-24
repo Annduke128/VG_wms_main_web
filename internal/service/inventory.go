@@ -63,3 +63,11 @@ func (s *InventoryService) BulkUpdate(ctx context.Context, req domain.BulkUpdate
 func (s *InventoryService) GetJob(ctx context.Context, jobID string) (*domain.AsyncJob, error) {
 	return s.Repo.GetAsyncJob(ctx, jobID)
 }
+
+func (s *InventoryService) GetFilterOptions(ctx context.Context) (*repo.FilterOptions, error) {
+	return s.Repo.GetInventoryFilterOptions(ctx)
+}
+
+func (s *InventoryService) ExportRows(ctx context.Context, maHangs []string, filterModel map[string]domain.FilterItem) ([]domain.InventoryMain, error) {
+	return s.Repo.QueryExportRows(ctx, maHangs, filterModel)
+}

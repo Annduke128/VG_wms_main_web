@@ -19,6 +19,17 @@ var AllowedColumns = map[string]bool{
 	"so_ngay_ton_ban": true,
 }
 
+// AllowedUpdateColumns is the whitelist for inventory_main UPDATE operations.
+// Excludes columns from joined tables (don_gia, ma_bu, ma_nhom_hang) which
+// live in products and cannot be updated via inventory grid.
+var AllowedUpdateColumns = map[string]bool{
+	"ten_san_pham": true,
+	"so_ton":       true, "so_nhap": true, "so_xuat": true,
+	"tien_ton": true, "tien_nhap": true, "tien_xuat": true,
+	"so_ngay_ton": true, "luong_ban_binh_quan_ngay": true,
+	"so_ngay_ton_ban": true,
+}
+
 // BuildQuery builds a paginated, filtered, sorted SQL query from GridRequest.
 // Returns: dataQuery, countQuery, args
 func BuildQuery(table string, req domain.GridRequest) (string, string, []interface{}) {
