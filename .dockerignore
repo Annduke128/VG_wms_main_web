@@ -21,11 +21,6 @@ Thumbs.db
 # ==== Node / Frontend (built separately) ====
 web/node_modules/
 web/dist/
-web/src/
-web/public/
-web/*.json
-web/*.js
-web/*.ts
 
 # ==== Dev config ====
 .air.toml

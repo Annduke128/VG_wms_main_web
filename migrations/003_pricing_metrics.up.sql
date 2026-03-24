@@ -1,5 +1,9 @@
 -- 003_pricing_metrics.up.sql
 -- 1. products.quy_cach TEXT → NUMERIC(15,4)
+--    Drop default first (text default can't auto-cast to numeric)
+ALTER TABLE products
+  ALTER COLUMN quy_cach DROP DEFAULT;
+
 ALTER TABLE products
   ALTER COLUMN quy_cach TYPE NUMERIC(15,4)
   USING (
@@ -8,6 +12,9 @@ ALTER TABLE products
       ELSE 1
     END
   );
+
+ALTER TABLE products
+  ALTER COLUMN quy_cach SET DEFAULT 1;
 
 -- 2. inventory_main.luong_ban_binh_quan_ngay → nullable
 ALTER TABLE inventory_main
