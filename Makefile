@@ -1,4 +1,4 @@
-.PHONY: dev dev-api dev-worker build migrate docker-up docker-down \
+.PHONY: dev dev-api dev-worker build migrate migrate-down migrate-status migrate-fix docker-up docker-down \
 	lint test seed clean web-install web-dev web-build docker-prod
 
 # ============================================
@@ -25,6 +25,24 @@ migrate:
 
 migrate-down:
 	migrate -path migrations -database "$(MIGRATE_DSN)" down
+
+migrate-status:
+	@echo "=== schema_migrations ==="
+	@psql "$(MIGRATE_DSN)" -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "(table not found — migrations never ran)"
+
+migrate-fix:
+	@echo "Current state:"
+	@psql "$(MIGRATE_DSN)" -c "SELECT * FROM schema_migrations;" 2>/dev/null || echo "(no schema_migrations table)"
+	@echo ""
+	@echo "If dirty=t, run: migrate -path migrations -database \"$(MIGRATE_DSN)\" force VERSION"
+	@echo "Then run: make migrate"
+	@echo ""
+	@read -p "Force to version (or Enter to skip): " ver; \
+	if [ -n "$$ver" ]; then \
+		migrate -path migrations -database "$(MIGRATE_DSN)" force $$ver; \
+		echo "Forced to version $$ver. Now running migrate up..."; \
+		migrate -path migrations -database "$(MIGRATE_DSN)" up; \
+	fi
 
 migrate-create:
 	@read -p "Migration name: " name; \

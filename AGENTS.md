@@ -49,8 +49,10 @@ Khi chạy `go build ./cmd/api` hoặc `go build ./cmd/worker` trực tiếp (kh
 ### Development
 
 ```bash
-make docker-up           # Start PostgreSQL + Redis
-make migrate             # Run migrations
+make docker-up           # Start PostgreSQL + Redis (KHÔNG chạy migrate)
+make migrate             # Run migrations (chạy riêng, chủ động)
+make migrate-status      # Kiểm tra version + dirty state
+make migrate-fix         # Interactive fix dirty migration
 make setup               # docker-up + migrate + seed + web-install
 make dev-api             # Run API server (air hot-reload nếu có)
 make dev-worker          # Run worker

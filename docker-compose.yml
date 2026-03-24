@@ -22,6 +22,7 @@ services:
 
   migrate:
     image: migrate/migrate:v4.17.0
+    profiles: ["migrate"]
     depends_on:
       postgres:
         condition: service_healthy
