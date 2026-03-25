@@ -50,6 +50,17 @@ type OutboundResult struct {
 	TotalAllocated float64              `json:"total_allocated"`
 }
 
+// OrderFilter — filter params cho danh sách đơn hàng
+type OrderFilter struct {
+	OrderType  string    // "in", "out", or "" for all
+	DateFrom   time.Time // zero = no lower bound
+	DateTo     time.Time // zero = no upper bound
+	MaBu       string    // filter by business unit (JOIN products)
+	MaNhomHang string    // filter by product group (JOIN products)
+	Limit      int
+	Offset     int
+}
+
 // OrderListItem — row trong danh sách đơn hàng (UNION inbound + outbound)
 type OrderListItem struct {
 	ID           int64     `json:"id" db:"id"`

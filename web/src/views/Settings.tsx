@@ -242,12 +242,13 @@ export function Settings() {
 					Import kho (gộp sản phẩm + tồn kho + lô)
 				</h3>
 				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
-					Upload file .xlsx (17 cột): Mã vạch, Tên sản phẩm, BU, Mã cat, Mã nhóm
+					Upload file .xlsx (15 cột): Mã vạch, Tên sản phẩm, BU, Mã cat, Mã nhóm
 					hàng, Nhóm hàng, ĐVT, Quy cách, Đơn giá, VAT, Ngày cập nhật, Hoa hồng,
-					Mã lô hàng, Ngày nhập, Số tồn, Số nhập, Số xuất. Giá NIV, Đơn giá
-					nhập, Tiền tồn/nhập/xuất được tự động tính. Mỗi mã vạch có nhiều lô →
-					nhập nhiều dòng. Ngày dùng dd/mm/yyyy, dd-mm-yyyy, hoặc dd-mm-yy. Mã
-					lô hàng nếu để trống sẽ tự tạo LOT-&lt;mã vạch&gt;-&lt;yyyymmdd&gt;.
+					Mã lô hàng, Ngày nhập, Số tồn. Số nhập/Số xuất được tính tự động từ
+					đơn nhập/xuất. Giá NIV, Đơn giá nhập, Tiền tồn được tự động tính. Mỗi
+					mã vạch có nhiều lô → nhập nhiều dòng. Ngày dùng dd/mm/yyyy,
+					dd-mm-yyyy, hoặc dd-mm-yy. Mã lô hàng nếu để trống sẽ tự tạo
+					LOT-&lt;mã vạch&gt;-&lt;yyyymmdd&gt;.
 				</p>
 				<div style={{ display: "flex", alignItems: "center", gap: 10 }}>
 					<button

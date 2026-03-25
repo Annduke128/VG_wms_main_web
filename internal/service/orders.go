@@ -208,12 +208,12 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 	}, nil
 }
 
-// ListOrders returns paginated list of orders (UNION inbound + outbound)
-func (s *OrderService) ListOrders(ctx context.Context, orderType string, limit, offset int) ([]domain.OrderListItem, int64, error) {
-	if limit <= 0 {
-		limit = 50
+// ListOrders returns paginated list of orders (UNION inbound + outbound) with filters
+func (s *OrderService) ListOrders(ctx context.Context, f domain.OrderFilter) ([]domain.OrderListItem, int64, error) {
+	if f.Limit <= 0 {
+		f.Limit = 50
 	}
-	return s.Repo.ListOrders(ctx, orderType, limit, offset)
+	return s.Repo.ListOrders(ctx, f)
 }
 
 // GetLots returns lot details for a product

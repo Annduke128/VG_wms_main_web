@@ -142,47 +142,86 @@ func (r *PostgresRepo) InsertInventoryMovement(ctx context.Context, tx pgx.Tx, m
 	return err
 }
 
-// ListOrders returns UNION of inbound + outbound, newest first
-func (r *PostgresRepo) ListOrders(ctx context.Context, orderType string, limit, offset int) ([]domain.OrderListItem, int64, error) {
-	var dataQuery, countQuery string
+// ListOrders returns UNION of inbound + outbound with optional filters, newest first.
+// Supports filtering by date range, ma_bu, and ma_nhom_hang (via JOIN products).
+func (r *PostgresRepo) ListOrders(ctx context.Context, f domain.OrderFilter) ([]domain.OrderListItem, int64, error) {
+	// Build WHERE conditions + params (shared between data and count queries)
+	needJoin := f.MaBu != "" || f.MaNhomHang != ""
+	var conditions []string
+	var args []interface{}
+	paramIdx := 1
 
-	switch orderType {
-	case "in":
-		dataQuery = `
-			SELECT id, 'IN' as order_type, ma_hang, ten_san_pham, don_vi_tinh,
-				   so_luong, batch_code, doanh_so, doanh_thu, ngay_nhan_hang
-			FROM inbound_items
-			ORDER BY ngay_nhan_hang DESC
-			LIMIT $1 OFFSET $2`
-		countQuery = `SELECT COUNT(*) FROM inbound_items`
-	case "out":
-		dataQuery = `
-			SELECT id, 'OUT' as order_type, ma_hang, ten_san_pham, don_vi_tinh,
-				   so_luong, batch_code, doanh_so, doanh_thu, ngay_nhan_hang
-			FROM outbound_items
-			ORDER BY ngay_nhan_hang DESC
-			LIMIT $1 OFFSET $2`
-		countQuery = `SELECT COUNT(*) FROM outbound_items`
-	default:
-		dataQuery = `
-			(SELECT id, 'IN' as order_type, ma_hang, ten_san_pham, don_vi_tinh,
-				    so_luong, batch_code, doanh_so, doanh_thu, ngay_nhan_hang
-			 FROM inbound_items)
-			UNION ALL
-			(SELECT id, 'OUT' as order_type, ma_hang, ten_san_pham, don_vi_tinh,
-				    so_luong, batch_code, doanh_so, doanh_thu, ngay_nhan_hang
-			 FROM outbound_items)
-			ORDER BY ngay_nhan_hang DESC
-			LIMIT $1 OFFSET $2`
-		countQuery = `SELECT (SELECT COUNT(*) FROM inbound_items) + (SELECT COUNT(*) FROM outbound_items)`
+	if !f.DateFrom.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("t.ngay_nhan_hang >= $%d", paramIdx))
+		args = append(args, f.DateFrom)
+		paramIdx++
+	}
+	if !f.DateTo.IsZero() {
+		conditions = append(conditions, fmt.Sprintf("t.ngay_nhan_hang <= $%d", paramIdx))
+		args = append(args, f.DateTo)
+		paramIdx++
+	}
+	if f.MaBu != "" {
+		conditions = append(conditions, fmt.Sprintf("p.ma_bu = $%d", paramIdx))
+		args = append(args, f.MaBu)
+		paramIdx++
+	}
+	if f.MaNhomHang != "" {
+		conditions = append(conditions, fmt.Sprintf("p.ma_nhom_hang = $%d", paramIdx))
+		args = append(args, f.MaNhomHang)
+		paramIdx++
 	}
 
+	whereClause := ""
+	if len(conditions) > 0 {
+		whereClause = " WHERE " + joinStrings(conditions, " AND ")
+	}
+
+	joinClause := ""
+	if needJoin {
+		joinClause = " JOIN products p ON t.ma_hang = p.ma_hang"
+	}
+
+	// Build per-table SELECT
+	selectCols := `t.id, %s as order_type, t.ma_hang, t.ten_san_pham, t.don_vi_tinh,
+		t.so_luong, t.batch_code, t.doanh_so, t.doanh_thu, t.ngay_nhan_hang`
+
+	buildSingle := func(table, typeLabel string) (string, string) {
+		sel := fmt.Sprintf(selectCols, fmt.Sprintf("'%s'", typeLabel))
+		from := fmt.Sprintf(" FROM %s t%s%s", table, joinClause, whereClause)
+		data := "SELECT " + sel + from
+		cnt := "SELECT COUNT(*)" + from
+		return data, cnt
+	}
+
+	var dataQuery, countQuery string
+
+	switch f.OrderType {
+	case "in":
+		dq, cq := buildSingle("inbound_items", "IN")
+		dataQuery = dq + fmt.Sprintf(" ORDER BY t.ngay_nhan_hang DESC LIMIT $%d OFFSET $%d", paramIdx, paramIdx+1)
+		countQuery = cq
+	case "out":
+		dq, cq := buildSingle("outbound_items", "OUT")
+		dataQuery = dq + fmt.Sprintf(" ORDER BY t.ngay_nhan_hang DESC LIMIT $%d OFFSET $%d", paramIdx, paramIdx+1)
+		countQuery = cq
+	default:
+		dqIn, cqIn := buildSingle("inbound_items", "IN")
+		dqOut, cqOut := buildSingle("outbound_items", "OUT")
+		dataQuery = fmt.Sprintf("(%s) UNION ALL (%s) ORDER BY ngay_nhan_hang DESC LIMIT $%d OFFSET $%d",
+			dqIn, dqOut, paramIdx, paramIdx+1)
+		countQuery = fmt.Sprintf("SELECT (%s) + (%s)", cqIn, cqOut)
+	}
+
+	// Count
 	var total int64
-	if err := r.Pool.QueryRow(ctx, countQuery).Scan(&total); err != nil {
+	if err := r.Pool.QueryRow(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, 0, fmt.Errorf("count orders: %w", err)
 	}
 
-	rows, err := r.Pool.Query(ctx, dataQuery, limit, offset)
+	// Data
+	dataArgs := append(args, f.Limit, f.Offset)
+	rows, err := r.Pool.Query(ctx, dataQuery, dataArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("query orders: %w", err)
 	}
@@ -195,6 +234,8 @@ func (r *PostgresRepo) ListOrders(ctx context.Context, orderType string, limit, 
 
 	return items, total, nil
 }
+
+// joinStrings is defined in inventory.go — reused here
 
 // GetLotsByMaHang returns all lots for a product
 func (r *PostgresRepo) GetLotsByMaHang(ctx context.Context, maHang string) ([]domain.InventoryLot, error) {

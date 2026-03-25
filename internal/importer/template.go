@@ -7,8 +7,9 @@ import (
 )
 
 // inventoryHeaders maps column index → Vietnamese header name.
-// 17 columns: products (12) + lot (2) + inventory (3).
+// 15 columns: products (12) + lot (2) + inventory (1).
 // Order MUST match ParseInventoryFull in inventory_full.go.
+// Số nhập/Số xuất removed — these are computed from inbound/outbound orders.
 var inventoryHeaders = []string{
 	// Products (1–12)
 	"Mã vạch",
@@ -26,13 +27,11 @@ var inventoryHeaders = []string{
 	// Lot (13–14)
 	"Mã lô hàng",
 	"Ngày nhập",
-	// Inventory (15–17)
+	// Inventory (15)
 	"Số tồn",
-	"Số nhập",
-	"Số xuất",
 }
 
-// BuildInventoryTemplate generates an empty .xlsx with 17-column header row.
+// BuildInventoryTemplate generates an empty .xlsx with 15-column header row.
 func BuildInventoryTemplate() ([]byte, error) {
 	f := excelize.NewFile()
 	defer f.Close()
@@ -52,7 +51,7 @@ func BuildInventoryTemplate() ([]byte, error) {
 		16, 30, 10, 10, 14, 16, 8, 12, // products 1–8
 		12, 8, 14, 10, // products 9–12
 		14, 14, // lot
-		10, 10, 10, // inventory
+		10, // inventory (so_ton only)
 	}
 	for i, w := range widths {
 		col, _ := excelize.ColumnNumberToName(i + 1)

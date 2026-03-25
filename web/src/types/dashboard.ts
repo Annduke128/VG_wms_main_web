@@ -45,11 +45,14 @@ export interface InventoryLot {
 
 export interface OrderListItem {
 	id: number;
-	type: string;
+	order_type: string; // "IN" or "OUT"
 	ma_hang: string;
 	ten_san_pham: string;
+	don_vi_tinh: string;
 	batch_code: string;
 	so_luong: number;
+	doanh_so: number;
+	doanh_thu: number;
 	ngay_nhan_hang: string;
 }
 

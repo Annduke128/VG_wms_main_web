@@ -56,6 +56,8 @@ const ALL_EXPORT_COLUMNS: { id: string; title: string }[] = [
 const READONLY_COLUMNS = new Set([
 	"ma_hang",
 	"don_gia",
+	"so_nhap",
+	"so_xuat",
 	"tien_ton",
 	"tien_nhap",
 	"tien_xuat",

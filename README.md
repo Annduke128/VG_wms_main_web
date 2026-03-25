@@ -53,9 +53,11 @@ VG_wms_main_web/
 │   ├── service/               # Business logic layer
 │   └── web/                   # HTTP handlers + routes + static serving
 ├── migrations/
-│   ├── 001_init.up.sql        # Schema creation (core tables)
-│   ├── 002_fifo_thresholds.up.sql  # FIFO lots + thresholds
-│   └── *.down.sql             # Rollback migrations
+│   ├── 001_init.up.sql              # Schema creation (core tables)
+│   ├── 002_fifo_thresholds.up.sql   # FIFO lots + thresholds
+│   ├── 003_pricing_metrics.up.sql   # Pricing + metrics columns
+│   ├── 004_inventory_grid_view.up.sql # inventory_grid VIEW (join products)
+│   └── *.down.sql                   # Rollback migrations
 ├── web/                       # Frontend React app
 │   ├── src/
 │   │   ├── api/client.ts      # API client (typed fetch)
@@ -63,7 +65,7 @@ VG_wms_main_web/
 │   │   ├── views/             # Overview, Inventory, Orders, Settings
 │   │   └── types/             # TypeScript types
 │   └── package.json
-├── docker-compose.yml         # Dev: PostgreSQL, Redis, ClickHouse, migrate
+├── docker-compose.yml         # Dev: PostgreSQL, Redis, ClickHouse (migrate via profile)
 ├── docker-compose.prod.yml    # Prod: + API, Worker
 ├── Dockerfile                 # Multi-stage: FE build + Go build
 ├── Dockerfile.worker          # Worker binary
@@ -113,13 +115,13 @@ VG_wms_main_web/
 
 ## Yêu cầu hệ thống
 
-| Tool           | Version | Mục đích                |
-| -------------- | ------- | ----------------------- |
-| Docker         | >= 24   | Tất cả services         |
-| Docker Compose | >= 2.20 | Orchestration           |
-| Go             | >= 1.23 | Backend (dev mode)      |
-| Node.js        | >= 18   | Frontend (dev mode)     |
-| golang-migrate | >= 4.17 | DB migration (dev mode) |
+| Tool           | Version | Mục đích                                  |
+| -------------- | ------- | ----------------------------------------- |
+| Docker         | >= 24   | Tất cả services                           |
+| Docker Compose | >= 2.20 | Orchestration                             |
+| Go             | >= 1.23 | Backend (dev mode)                        |
+| Node.js        | >= 18   | Frontend (dev mode)                       |
+| golang-migrate | >= 4.17 | DB migration (dev mode, hoặc dùng docker) |
 
 ## Cài đặt & Chạy
 
@@ -131,16 +133,19 @@ git clone <repo-url>
 cd VG_wms_main_web
 cp .env.example .env
 
-# 2. Khởi động infra + auto migrate
+# 2. Khởi động infra (KHÔNG auto migrate)
 docker compose up -d
 # → PostgreSQL :5432, Redis :6379, ClickHouse :8123
-# → Migration tự chạy qua service migrate
 
-# 3. Chạy backend (dev mode)
+# 3. Chạy migration (chọn 1 trong 2 cách)
+make migrate                                              # Cách 1: CLI trên host (cần cài golang-migrate)
+docker compose --profile migrate run --rm migrate         # Cách 2: Docker (không cần cài gì)
+
+# 4. Chạy backend (dev mode)
 make dev-api       # Terminal 1 — API :8080
 make dev-worker    # Terminal 2 — Worker
 
-# 4. Chạy frontend (dev mode)
+# 5. Chạy frontend (dev mode)
 make web-install   # Lần đầu
 make web-dev       # → http://localhost:5173 (proxy /api → :8080)
 ```
@@ -151,10 +156,12 @@ make web-dev       # → http://localhost:5173 (proxy /api → :8080)
 # Set env
 export POSTGRES_PASSWORD=your_secure_password
 
+# Chạy migration trước
+docker compose --profile migrate run --rm migrate
+
 # Build & run all services
 docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # → API + FE served on :8080
-# → Migration tự chạy trước khi API start
 ```
 
 ## Cơ sở dữ liệu
@@ -188,13 +195,16 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ### Inventory
 
-| Method | Path                         | Mô tả                              |
-| ------ | ---------------------------- | ---------------------------------- |
-| POST   | `/api/inventory/grid`        | Truy vấn lưới (filter, sort, page) |
-| PATCH  | `/api/inventory/:ma_hang`    | Cập nhật 1 dòng inventory          |
-| POST   | `/api/inventory/bulk-update` | Cập nhật hàng loạt → 202 + job_id  |
-| GET    | `/api/inventory/lots`        | Lots theo ma_hang (FIFO)           |
-| GET    | `/api/inventory/alerts`      | Cảnh báo tồn lâu + thiếu hàng      |
+| Method | Path                            | Mô tả                               |
+| ------ | ------------------------------- | ----------------------------------- |
+| POST   | `/api/inventory/grid`           | Truy vấn lưới (filter, sort, page)  |
+| PATCH  | `/api/inventory/:ma_hang`       | Cập nhật 1 dòng inventory           |
+| POST   | `/api/inventory/bulk-update`    | Cập nhật hàng loạt → 202 + job_id   |
+| GET    | `/api/inventory/lots`           | Lots theo ma_hang (FIFO)            |
+| GET    | `/api/inventory/alerts`         | Cảnh báo tồn lâu + thiếu hàng       |
+| GET    | `/api/inventory/filter-options` | Danh sách BU + Nhóm hàng (dropdown) |
+| POST   | `/api/inventory/export`         | Export Excel (chọn dòng + cột)      |
+| POST   | `/api/inventory/recalc-all`     | Recalc tất cả metrics (async)       |
 
 ### Orders
 
@@ -222,6 +232,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 | POST   | `/api/kanban/outbound/:id/move` | Chuyển trạng thái xuất |
 | POST   | `/api/import/{type}`            | Import Excel (.xlsx)   |
 | GET    | `/api/jobs/:id`                 | Trạng thái job         |
+| POST   | `/api/admin/reset-all`          | Reset toàn bộ DB       |
 
 ## Biến môi trường
 
@@ -235,17 +246,19 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ## Makefile Commands
 
-| Command            | Mô tả                                             |
-| ------------------ | ------------------------------------------------- |
-| `make docker-up`   | Khởi động PostgreSQL, Redis, ClickHouse + migrate |
-| `make docker-down` | Dừng tất cả containers                            |
-| `make docker-prod` | Build + chạy production (API+Worker+FE)           |
-| `make migrate`     | Chạy migration PostgreSQL (dev)                   |
-| `make dev-api`     | Chạy API server (dev mode)                        |
-| `make dev-worker`  | Chạy background worker (dev mode)                 |
-| `make build`       | Build binary production                           |
-| `make web-dev`     | Chạy frontend dev server (proxy :8080)            |
-| `make web-build`   | Build frontend production                         |
+| Command               | Mô tả                                                   |
+| --------------------- | ------------------------------------------------------- |
+| `make docker-up`      | Khởi động PostgreSQL, Redis, ClickHouse (KHÔNG migrate) |
+| `make docker-down`    | Dừng tất cả containers                                  |
+| `make docker-prod`    | Build + chạy production (API+Worker+FE)                 |
+| `make migrate`        | Chạy migration PostgreSQL (cần cài golang-migrate)      |
+| `make migrate-status` | Kiểm tra version + dirty state                          |
+| `make migrate-fix`    | Interactive fix dirty migration                         |
+| `make dev-api`        | Chạy API server (dev mode)                              |
+| `make dev-worker`     | Chạy background worker (dev mode)                       |
+| `make build`          | Build binary production                                 |
+| `make web-dev`        | Chạy frontend dev server (proxy :8080)                  |
+| `make web-build`      | Build frontend production                               |
 
 ## Giới hạn hiện tại
 

@@ -324,27 +324,74 @@ func (h *Handlers) InventoryLots(c *gin.Context) {
 // --- Orders ---
 
 func (h *Handlers) ListOrders(c *gin.Context) {
-	orderType := c.Query("type") // "in", "out", or "" for all
+	var f domain.OrderFilter
+	f.OrderType = c.Query("type") // "in", "out", or "" for all
+
 	page := 1
 	if p := c.Query("page"); p != "" {
 		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
 			page = parsed
 		}
 	}
-	limit := 50
+	f.Limit = 50
 	if l := c.Query("limit"); l != "" {
 		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 200 {
-			limit = parsed
+			f.Limit = parsed
 		}
 	}
-	offset := (page - 1) * limit
+	f.Offset = (page - 1) * f.Limit
 
-	orders, total, err := h.Orders.ListOrders(c.Request.Context(), orderType, limit, offset)
+	// Date filters: dd/mm/yyyy or yyyy-mm-dd
+	if df := c.Query("date_from"); df != "" {
+		if t, err := parseDateParam(df); err == nil {
+			f.DateFrom = t
+		}
+	}
+	if dt := c.Query("date_to"); dt != "" {
+		if t, err := parseDateParam(dt); err == nil {
+			// End of day
+			f.DateTo = t.Add(24*time.Hour - time.Nanosecond)
+		}
+	}
+	// Month filter: mm/yyyy — overrides date_from/date_to
+	if m := c.Query("month"); m != "" {
+		if t, err := parseMonthParam(m); err == nil {
+			f.DateFrom = t
+			f.DateTo = t.AddDate(0, 1, 0).Add(-time.Nanosecond)
+		}
+	}
+
+	f.MaBu = c.Query("ma_bu")
+	f.MaNhomHang = c.Query("ma_nhom_hang")
+
+	orders, total, err := h.Orders.ListOrders(c.Request.Context(), f)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(200, gin.H{"data": orders, "total": total, "page": page, "limit": limit})
+	c.JSON(200, gin.H{"data": orders, "total": total, "page": page, "limit": f.Limit})
+}
+
+// parseDateParam parses dd/mm/yyyy or yyyy-mm-dd
+func parseDateParam(s string) (time.Time, error) {
+	layouts := []string{"02/01/2006", "2006-01-02", "02-01-2006"}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid date: %s", s)
+}
+
+// parseMonthParam parses mm/yyyy
+func parseMonthParam(s string) (time.Time, error) {
+	layouts := []string{"01/2006", "2006-01"}
+	for _, layout := range layouts {
+		if t, err := time.Parse(layout, s); err == nil {
+			return t, nil
+		}
+	}
+	return time.Time{}, fmt.Errorf("invalid month: %s", s)
 }
 
 func (h *Handlers) CreateOrder(c *gin.Context) {

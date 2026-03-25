@@ -12,14 +12,14 @@ import (
 // dateFmtDDMMYYYY kept for reference; actual parsing uses parseDateFlexible.
 const dateFmtDDMMYYYY = "02/01/2006" // dd/mm/yyyy
 
-// InventoryFullRow holds parsed data from a single row of the 17-column file.
+// InventoryFullRow holds parsed data from a single row of the 15-column file.
 type InventoryFullRow struct {
 	Product   domain.Product
 	Inventory domain.InventoryMain
 	Inbound   domain.InboundItem
 }
 
-// ParseInventoryFull reads the 17-column inventory file.
+// ParseInventoryFull reads the 15-column inventory file.
 // Returns parsed rows + parse errors (best-effort: each row independent).
 //
 // Column order (0-indexed):
@@ -39,16 +39,14 @@ type InventoryFullRow struct {
 //	12 Mã lô hàng      → inbound_items.batch_code (REQUIRED)
 //	13 Ngày nhập        → inbound_items.ngay_nhan_hang (REQUIRED, dd/mm/yyyy)
 //	14 Số tồn           → inventory_main.so_ton
-//	15 Số nhập          → inventory_main.so_nhap
-//	16 Số xuất          → inventory_main.so_xuat
+//
+// Số nhập/Số xuất removed — these are computed from inbound/outbound orders.
 //
 // Computed fields:
 //
 //	products.gia_nhap = don_gia * quy_cach * hoa_hong
 //	products.gia_niv  = gia_nhap / (1 + VAT)
 //	inventory_main.tien_ton  = don_gia * so_ton
-//	inventory_main.tien_nhap = don_gia * so_nhap
-//	inventory_main.tien_xuat = don_gia * so_xuat
 func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 	f, err := excelize.OpenFile(filePath)
 	if err != nil {
@@ -66,15 +64,21 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 		return nil, nil, fmt.Errorf("no data rows found")
 	}
 
+	// Reject old 17-column files — new format requires exactly 15 columns
+	headerCount := len(rows[0])
+	if headerCount > 15 {
+		return nil, nil, fmt.Errorf("file có %d cột (yêu cầu 15 cột). Vui lòng tải mẫu mới — Số nhập/Số xuất đã bị bỏ", headerCount)
+	}
+
 	var results []InventoryFullRow
 	var parseErrors []string
 
 	for i, row := range rows[1:] { // skip header
 		rowNum := i + 2
 
-		if len(row) < 17 {
+		if len(row) < 15 {
 			// Pad with empty strings
-			for len(row) < 17 {
+			for len(row) < 15 {
 				row = append(row, "")
 			}
 		}
@@ -111,8 +115,6 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 		vat := parseFloat(row[9])
 		hoaHong := parseFloat(row[11])
 		soTon := parseFloat(row[14])
-		soNhap := parseFloat(row[15])
-		soXuat := parseFloat(row[16])
 
 		// Computed: gia_nhap = don_gia * quy_cach * hoa_hong
 		giaNhap := donGia * quyCach * hoaHong
@@ -152,11 +154,7 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			MaHang:     maVach,
 			TenSanPham: tenSanPham,
 			SoTon:      soTon,
-			SoNhap:     soNhap,
-			SoXuat:     soXuat,
 			TienTon:    donGia * soTon,
-			TienNhap:   donGia * soNhap,
-			TienXuat:   donGia * soXuat,
 		}
 
 		inbound := domain.InboundItem{
@@ -164,7 +162,7 @@ func ParseInventoryFull(filePath string) ([]InventoryFullRow, []string, error) {
 			TenSanPham:   tenSanPham,
 			DonViTinh:    row[6],
 			QuyCach:      row[7],
-			SoLuong:      soNhap, // Số nhập = lot qty
+			SoLuong:      soTon, // Use soTon as the inbound lot qty
 			BatchCode:    batchCode,
 			NgayNhanHang: ngayNhap,
 		}

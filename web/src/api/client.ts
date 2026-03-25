@@ -88,12 +88,28 @@ export const api = {
 	inventoryAlerts: () => request("/inventory/alerts"),
 
 	// Orders
-	listOrders: (type?: string, page = 1, limit = 50) => {
+	listOrders: (
+		filters: {
+			type?: string;
+			page?: number;
+			limit?: number;
+			date_from?: string;
+			date_to?: string;
+			month?: string;
+			ma_bu?: string;
+			ma_nhom_hang?: string;
+		} = {},
+	) => {
 		const params = new URLSearchParams({
-			page: String(page),
-			limit: String(limit),
+			page: String(filters.page || 1),
+			limit: String(filters.limit || 50),
 		});
-		if (type) params.set("type", type);
+		if (filters.type) params.set("type", filters.type);
+		if (filters.date_from) params.set("date_from", filters.date_from);
+		if (filters.date_to) params.set("date_to", filters.date_to);
+		if (filters.month) params.set("month", filters.month);
+		if (filters.ma_bu) params.set("ma_bu", filters.ma_bu);
+		if (filters.ma_nhom_hang) params.set("ma_nhom_hang", filters.ma_nhom_hang);
 		return request(`/orders?${params}`);
 	},
 	createOrder: (body: unknown) =>

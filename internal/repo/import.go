@@ -124,9 +124,9 @@ func (r *PostgresRepo) CreateAsyncJob(ctx context.Context, jobID, jobType, paylo
 	return err
 }
 
-// ImportInventoryFull processes rows from the 17-column file:
+// ImportInventoryFull processes rows from the 15-column file:
 // 1. Upsert products (with computed gia_nhap, gia_niv)
-// 2. Upsert inventory_main (with computed tien_ton, tien_nhap, tien_xuat)
+// 2. Upsert inventory_main (so_ton + tien_ton only; so_nhap/so_xuat NOT touched)
 // 3. Insert inbound_items (with batch_code)
 // 4. Upsert inventory_lots
 // Best-effort: each row independent, skip on error.
@@ -154,19 +154,16 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 			continue
 		}
 
-		// 2. Upsert inventory_main
+		// 2. Upsert inventory_main (so_nhap/so_xuat not touched — computed from orders)
 		_, err = r.Pool.Exec(ctx,
 			`INSERT INTO inventory_main (ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
 			  tien_ton, tien_nhap, tien_xuat)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+			 VALUES ($1,$2,$3,0,0,$4,0,0)
 			 ON CONFLICT (ma_hang) DO UPDATE SET
 			  ten_san_pham=EXCLUDED.ten_san_pham, so_ton=EXCLUDED.so_ton,
-			  so_nhap=EXCLUDED.so_nhap, so_xuat=EXCLUDED.so_xuat,
-			  tien_ton=EXCLUDED.tien_ton, tien_nhap=EXCLUDED.tien_nhap,
-			  tien_xuat=EXCLUDED.tien_xuat`,
+			  tien_ton=EXCLUDED.tien_ton`,
 			row.Inventory.MaHang, row.Inventory.TenSanPham, row.Inventory.SoTon,
-			row.Inventory.SoNhap, row.Inventory.SoXuat, row.Inventory.TienTon,
-			row.Inventory.TienNhap, row.Inventory.TienXuat)
+			row.Inventory.TienTon)
 		if err != nil {
 			continue
 		}
