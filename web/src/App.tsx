@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Page } from "./components/Sidebar";
 import { Sidebar } from "./components/Sidebar";
+import { ComboWarehouse } from "./views/ComboWarehouse";
 import { Inventory } from "./views/Inventory";
 import { Orders } from "./views/Orders";
 import { Overview } from "./views/Overview";
@@ -16,6 +17,7 @@ function App() {
 			<main style={{ flex: 1, padding: 24, overflow: "auto" }}>
 				{page === "overview" && <Overview />}
 				{page === "inventory" && <Inventory />}
+				{page === "combo" && <ComboWarehouse />}
 				{page === "orders" && <Orders />}
 				{page === "settings" && <Settings />}
 			</main>

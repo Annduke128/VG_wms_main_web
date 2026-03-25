@@ -11,6 +11,15 @@ func (r *PostgresRepo) ResetAllData(ctx context.Context) error {
 	// Using a single TRUNCATE with CASCADE for safety.
 	_, err := r.Pool.Exec(ctx, `
 		TRUNCATE TABLE
+			combo_component_movements,
+			combo_transactions,
+			combo_inventory,
+			combo_bom_accessory,
+			combo_bom_semi,
+			combo_master,
+			accessory_movements,
+			accessory_inventory,
+			accessories,
 			inventory_lbbq_history,
 			inventory_movements,
 			inventory_lots,

@@ -43,9 +43,10 @@ func main() {
 	impService := service.NewImportService(pg, rq)
 	ordService := service.NewOrderService(pg)
 	dashService := service.NewDashboardService(pg)
+	comboService := service.NewComboService(pg)
 
 	// Init handlers
-	handlers := web.NewHandlers(invService, kanService, impService, ordService, dashService, rq)
+	handlers := web.NewHandlers(invService, kanService, impService, ordService, dashService, comboService, rq)
 
 	// Setup Gin router
 	router := web.SetupRoutes(handlers)

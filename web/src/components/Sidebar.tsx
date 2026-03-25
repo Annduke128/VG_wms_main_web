@@ -1,4 +1,4 @@
-type Page = "overview" | "inventory" | "orders" | "settings";
+type Page = "overview" | "inventory" | "combo" | "orders" | "settings";
 
 interface SidebarProps {
 	active: Page;
@@ -7,7 +7,8 @@ interface SidebarProps {
 
 const NAV_ITEMS: { key: Page; label: string }[] = [
 	{ key: "overview", label: "Tổng quan" },
-	{ key: "inventory", label: "Kho" },
+	{ key: "inventory", label: "Kho chính" },
+	{ key: "combo", label: "Kho combo" },
 	{ key: "orders", label: "Nhập / Xuất" },
 	{ key: "settings", label: "Cài đặt" },
 ];

@@ -77,6 +77,28 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	api.POST("/inventory/recalc-all", h.RecalcAllMetrics)
 	api.POST("/admin/reset-all", h.ResetAllData)
 
+	// Combo Master
+	api.GET("/combo/masters", h.ListComboMasters)
+	api.GET("/combo/masters/:ma_combo", h.GetComboDetail)
+	api.POST("/combo/masters", h.SaveComboMaster)
+	api.DELETE("/combo/masters/:ma_combo", h.DeleteComboMaster)
+
+	// Combo Operations
+	api.POST("/combo/create", h.CreateCombo)
+	api.POST("/combo/cancel", h.CancelCombo)
+	api.POST("/combo/out", h.ComboOut)
+	api.POST("/combo/return", h.ComboReturn)
+
+	// Combo Inventory & Transactions
+	api.GET("/combo/inventory", h.GetComboInventory)
+	api.GET("/combo/transactions", h.ListComboTransactions)
+
+	// Accessories
+	api.GET("/accessories", h.ListAccessories)
+	api.POST("/accessories", h.CreateAccessory)
+	api.GET("/accessories/inventory", h.GetAccessoryInventory)
+	api.POST("/accessories/stock-in", h.AccessoryStockIn)
+
 	// Serve static frontend (production)
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

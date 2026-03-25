@@ -153,6 +153,50 @@ export const api = {
 		return res.blob();
 	},
 
+	// Combo Masters
+	listComboMasters: () => request("/combo/masters"),
+	getComboDetail: (maCombo: string) =>
+		request(`/combo/masters/${encodeURIComponent(maCombo)}`),
+	saveComboMaster: (body: unknown) =>
+		request("/combo/masters", { method: "POST", body: JSON.stringify(body) }),
+	deleteComboMaster: (maCombo: string) =>
+		request(`/combo/masters/${encodeURIComponent(maCombo)}`, {
+			method: "DELETE",
+		}),
+
+	// Combo Operations
+	createCombo: (body: { ma_combo: string; so_luong: number; note?: string }) =>
+		request("/combo/create", { method: "POST", body: JSON.stringify(body) }),
+	cancelCombo: (body: { ma_combo: string; so_luong: number; note?: string }) =>
+		request("/combo/cancel", { method: "POST", body: JSON.stringify(body) }),
+	comboOut: (body: { ma_combo: string; so_luong: number; note?: string }) =>
+		request("/combo/out", { method: "POST", body: JSON.stringify(body) }),
+	comboReturn: (body: { ma_combo: string; so_luong: number; note?: string }) =>
+		request("/combo/return", { method: "POST", body: JSON.stringify(body) }),
+
+	// Combo Inventory & Transactions
+	comboInventory: () => request("/combo/inventory"),
+	comboTransactions: (page = 1, limit = 50) =>
+		request(`/combo/transactions?page=${page}&limit=${limit}`),
+
+	// Accessories
+	listAccessories: () => request("/accessories"),
+	createAccessory: (body: {
+		ma_phu_kien: string;
+		ten_phu_kien: string;
+		don_vi_tinh: string;
+	}) => request("/accessories", { method: "POST", body: JSON.stringify(body) }),
+	accessoryInventory: () => request("/accessories/inventory"),
+	accessoryStockIn: (body: {
+		ma_phu_kien: string;
+		so_luong: number;
+		note?: string;
+	}) =>
+		request("/accessories/stock-in", {
+			method: "POST",
+			body: JSON.stringify(body),
+		}),
+
 	// Thresholds
 	getThresholds: (maHang?: string) => {
 		const params = maHang ? `?ma_hang=${encodeURIComponent(maHang)}` : "";

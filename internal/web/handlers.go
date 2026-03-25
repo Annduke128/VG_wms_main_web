@@ -24,11 +24,12 @@ type Handlers struct {
 	Import    *service.ImportService
 	Orders    *service.OrderService
 	Dashboard *service.DashboardService
+	Combo     *service.ComboService
 	Queue     *queue.RedisQueue
 }
 
-func NewHandlers(inv *service.InventoryService, kan *service.KanbanService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, q *queue.RedisQueue) *Handlers {
-	return &Handlers{Inventory: inv, Kanban: kan, Import: imp, Orders: ord, Dashboard: dash, Queue: q}
+func NewHandlers(inv *service.InventoryService, kan *service.KanbanService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, combo *service.ComboService, q *queue.RedisQueue) *Handlers {
+	return &Handlers{Inventory: inv, Kanban: kan, Import: imp, Orders: ord, Dashboard: dash, Combo: combo, Queue: q}
 }
 
 // --- Inventory Grid ---
@@ -623,4 +624,187 @@ func (h *Handlers) ExportInventory(c *gin.Context) {
 	filename := fmt.Sprintf("BaoCaoTonKho_%s.xlsx", time.Now().Format("20060102"))
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 	c.Data(200, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data)
+}
+
+// --- Combo Master ---
+
+func (h *Handlers) ListComboMasters(c *gin.Context) {
+	items, err := h.Combo.ListComboMasters(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
+func (h *Handlers) GetComboDetail(c *gin.Context) {
+	maCombo := c.Param("ma_combo")
+	detail, err := h.Combo.GetComboDetail(c.Request.Context(), maCombo)
+	if err != nil {
+		c.JSON(404, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, detail)
+}
+
+func (h *Handlers) SaveComboMaster(c *gin.Context) {
+	var req domain.SaveComboMasterRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if err := h.Combo.SaveComboMaster(c.Request.Context(), req); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"status": "ok"})
+}
+
+func (h *Handlers) DeleteComboMaster(c *gin.Context) {
+	maCombo := c.Param("ma_combo")
+	if err := h.Combo.DeleteComboMaster(c.Request.Context(), maCombo); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// --- Combo Operations ---
+
+func (h *Handlers) CreateCombo(c *gin.Context) {
+	var req domain.CreateComboRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	txn, err := h.Combo.CreateCombo(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(201, txn)
+}
+
+func (h *Handlers) CancelCombo(c *gin.Context) {
+	var req domain.CancelComboRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	txn, err := h.Combo.CancelCombo(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, txn)
+}
+
+func (h *Handlers) ComboOut(c *gin.Context) {
+	var req domain.ComboOutRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	txn, err := h.Combo.ComboOut(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, txn)
+}
+
+func (h *Handlers) ComboReturn(c *gin.Context) {
+	var req domain.ComboReturnRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	txn, err := h.Combo.ComboReturn(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, txn)
+}
+
+// --- Combo Inventory ---
+
+func (h *Handlers) GetComboInventory(c *gin.Context) {
+	items, err := h.Combo.GetComboInventory(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
+// --- Combo Transactions ---
+
+func (h *Handlers) ListComboTransactions(c *gin.Context) {
+	maCombo := c.Query("ma_combo")
+	page := 1
+	if p := c.Query("page"); p != "" {
+		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
+			page = parsed
+		}
+	}
+	limit := 50
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil && parsed > 0 && parsed <= 200 {
+			limit = parsed
+		}
+	}
+
+	items, total, err := h.Combo.ListComboTransactions(c.Request.Context(), maCombo, page, limit)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"data": items, "total": total, "page": page, "limit": limit})
+}
+
+// --- Accessories ---
+
+func (h *Handlers) ListAccessories(c *gin.Context) {
+	items, err := h.Combo.ListAccessories(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
+func (h *Handlers) CreateAccessory(c *gin.Context) {
+	var req domain.CreateAccessoryRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if err := h.Combo.CreateAccessory(c.Request.Context(), req); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(201, gin.H{"status": "ok"})
+}
+
+func (h *Handlers) GetAccessoryInventory(c *gin.Context) {
+	items, err := h.Combo.GetAccessoryInventory(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, items)
+}
+
+func (h *Handlers) AccessoryStockIn(c *gin.Context) {
+	var req domain.AccessoryStockInRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if err := h.Combo.AccessoryStockIn(c.Request.Context(), req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, gin.H{"status": "ok"})
 }

@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS combo_component_movements;
+DROP TABLE IF EXISTS combo_transactions;
+DROP TABLE IF EXISTS combo_inventory;
+DROP TABLE IF EXISTS combo_bom_accessory;
+DROP TABLE IF EXISTS combo_bom_semi;
+DROP TABLE IF EXISTS combo_master;
+DROP TABLE IF EXISTS accessory_movements;
+DROP TABLE IF EXISTS accessory_inventory;
+DROP TABLE IF EXISTS accessories;
