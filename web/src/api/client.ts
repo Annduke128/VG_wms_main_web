@@ -31,26 +31,6 @@ export const api = {
 
 	getJob: (jobId: string) => request(`/jobs/${jobId}`),
 
-	// Kanban Inbound
-	listKanbanInbound: () => request("/kanban/inbound"),
-	createKanbanInbound: (body: unknown) =>
-		request("/kanban/inbound", { method: "POST", body: JSON.stringify(body) }),
-	moveKanbanInbound: (id: number, body: unknown) =>
-		request(`/kanban/inbound/${id}/move`, {
-			method: "POST",
-			body: JSON.stringify(body),
-		}),
-
-	// Kanban Outbound
-	listKanbanOutbound: () => request("/kanban/outbound"),
-	createKanbanOutbound: (body: unknown) =>
-		request("/kanban/outbound", { method: "POST", body: JSON.stringify(body) }),
-	moveKanbanOutbound: (id: number, body: unknown) =>
-		request(`/kanban/outbound/${id}/move`, {
-			method: "POST",
-			body: JSON.stringify(body),
-		}),
-
 	// Import
 	importFile: (type: string, file: File) => {
 		const form = new FormData();

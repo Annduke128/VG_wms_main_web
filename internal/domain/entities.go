@@ -107,37 +107,6 @@ type InventoryMovement struct {
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
 }
 
-type KanbanEvent struct {
-	EventID   int64     `json:"event_id" db:"event_id"`
-	SKU       string    `json:"sku" db:"sku"`
-	FromStage string    `json:"from_stage" db:"from_stage"`
-	ToStage   string    `json:"to_stage" db:"to_stage"`
-	UserID    string    `json:"user_id" db:"user_id"`
-	CreatedAt time.Time `json:"created_at" db:"created_at"`
-}
-
-type KanbanInbound struct {
-	ID         int64     `json:"id" db:"id"`
-	MaHang     string    `json:"ma_hang" db:"ma_hang"`
-	TenSanPham string    `json:"ten_san_pham" db:"ten_san_pham"`
-	SoLuong    float64   `json:"so_luong" db:"so_luong"`
-	Stage      string    `json:"stage" db:"stage"`
-	Note       string    `json:"note" db:"note"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
-}
-
-type KanbanOutbound struct {
-	ID         int64     `json:"id" db:"id"`
-	MaHang     string    `json:"ma_hang" db:"ma_hang"`
-	TenSanPham string    `json:"ten_san_pham" db:"ten_san_pham"`
-	SoLuong    float64   `json:"so_luong" db:"so_luong"`
-	Stage      string    `json:"stage" db:"stage"`
-	Note       string    `json:"note" db:"note"`
-	CreatedAt  time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at" db:"updated_at"`
-}
-
 type AsyncJob struct {
 	JobID     string    `json:"job_id" db:"job_id"`
 	JobType   string    `json:"job_type" db:"job_type"`

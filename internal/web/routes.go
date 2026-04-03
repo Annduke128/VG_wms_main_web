@@ -36,16 +36,6 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	// Jobs
 	api.GET("/jobs/:id", h.GetJob)
 
-	// Kanban Inbound
-	api.GET("/kanban/inbound", h.ListKanbanInbound)
-	api.POST("/kanban/inbound", h.CreateKanbanInbound)
-	api.POST("/kanban/inbound/:id/move", h.MoveKanbanInbound)
-
-	// Kanban Outbound
-	api.GET("/kanban/outbound", h.ListKanbanOutbound)
-	api.POST("/kanban/outbound", h.CreateKanbanOutbound)
-	api.POST("/kanban/outbound/:id/move", h.MoveKanbanOutbound)
-
 	// Import
 	api.POST("/import/products", h.ImportFile("products"))
 	api.POST("/import/inventory", h.ImportFile("inventory"))

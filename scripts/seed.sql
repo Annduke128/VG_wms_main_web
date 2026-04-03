@@ -62,29 +62,4 @@ INSERT INTO inventory_movements (ma_hang, qty, type, created_at) VALUES
   ('SP006',  60, 'OUT', '2026-03-04 10:00:00'),
   ('SP009', 100, 'IN',  '2026-03-05 08:30:00');
 
--- Sample kanban inbound cards
-INSERT INTO kanban_inbound (ma_hang, ten_san_pham, so_luong, stage, note, created_at) VALUES
-  ('SP003', 'Nước mắm Chinsu 500ml', 50, 'can_nhap',    'Tồn thấp, cần bổ sung',   '2026-03-06 08:00:00'),
-  ('SP007', 'Bột giặt OMO 4.5kg',    40, 'da_len_don',  'Đã liên hệ NCC',          '2026-03-06 09:00:00'),
-  ('SP004', 'Dầu ăn Tường An 1L',    30, 'da_duyet',    'Duyệt bởi quản lý',       '2026-03-05 10:00:00'),
-  ('SP010', 'Đường Biên Hòa 1kg',   100, 'da_ve_hang',  'Đã nhập kho',             '2026-03-04 14:00:00');
-
--- Sample kanban outbound cards
-INSERT INTO kanban_outbound (ma_hang, ten_san_pham, so_luong, stage, note, created_at) VALUES
-  ('SP004', 'Dầu ăn Tường An 1L',    20, 'can_day',      'Tồn cao, cần đẩy',        '2026-03-06 08:00:00'),
-  ('SP008', 'Giấy vệ sinh Pulppy',   30, 'da_chot_don',  'Đã chốt với đại lý ABC',  '2026-03-05 11:00:00'),
-  ('SP010', 'Đường Biên Hòa 1kg',    50, 'da_giao',      'Giao cho siêu thị XYZ',   '2026-03-04 16:00:00');
-
--- Sample kanban events
-INSERT INTO kanban_events (sku, from_stage, to_stage, user_id, created_at) VALUES
-  ('SP007', 'can_nhap',   'da_len_don', 'admin', '2026-03-06 09:00:00'),
-  ('SP004', 'can_nhap',   'da_len_don', 'admin', '2026-03-05 08:00:00'),
-  ('SP004', 'da_len_don', 'da_duyet',   'admin', '2026-03-05 10:00:00'),
-  ('SP010', 'can_nhap',   'da_len_don', 'admin', '2026-03-03 09:00:00'),
-  ('SP010', 'da_len_don', 'da_duyet',   'admin', '2026-03-03 14:00:00'),
-  ('SP010', 'da_duyet',   'da_ve_hang', 'admin', '2026-03-04 14:00:00'),
-  ('SP008', 'can_day',    'da_chot_don','admin', '2026-03-05 11:00:00'),
-  ('SP010', 'can_day',    'da_chot_don','admin', '2026-03-04 10:00:00'),
-  ('SP010', 'da_chot_don','da_giao',    'admin', '2026-03-04 16:00:00');
-
 COMMIT;

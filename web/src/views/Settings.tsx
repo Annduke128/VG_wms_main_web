@@ -811,7 +811,7 @@ export function Settings() {
 				</h3>
 				<p style={{ fontSize: 11, color: "#7a7f8e", marginBottom: 12 }}>
 					Xóa toàn bộ dữ liệu trong database (sản phẩm, tồn kho, nhập/xuất, lô
-					hàng, kanban, đơn hàng, ngưỡng...). Hành động này không thể hoàn tác.
+					hàng, đơn hàng, ngưỡng...). Hành động này không thể hoàn tác.
 				</p>
 				<button
 					onClick={() => {

@@ -20,7 +20,6 @@ import (
 
 type Handlers struct {
 	Inventory *service.InventoryService
-	Kanban    *service.KanbanService
 	Import    *service.ImportService
 	Orders    *service.OrderService
 	Dashboard *service.DashboardService
@@ -28,8 +27,8 @@ type Handlers struct {
 	Queue     *queue.RedisQueue
 }
 
-func NewHandlers(inv *service.InventoryService, kan *service.KanbanService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, combo *service.ComboService, q *queue.RedisQueue) *Handlers {
-	return &Handlers{Inventory: inv, Kanban: kan, Import: imp, Orders: ord, Dashboard: dash, Combo: combo, Queue: q}
+func NewHandlers(inv *service.InventoryService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, combo *service.ComboService, q *queue.RedisQueue) *Handlers {
+	return &Handlers{Inventory: inv, Import: imp, Orders: ord, Dashboard: dash, Combo: combo, Queue: q}
 }
 
 // --- Inventory Grid ---
@@ -95,117 +94,6 @@ func (h *Handlers) GetJob(c *gin.Context) {
 		return
 	}
 	c.JSON(200, job)
-}
-
-// --- Kanban Inbound ---
-
-func (h *Handlers) ListKanbanInbound(c *gin.Context) {
-	items, err := h.Kanban.ListInbound(c.Request.Context())
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, items)
-}
-
-func (h *Handlers) CreateKanbanInbound(c *gin.Context) {
-	var req domain.CreateKanbanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request body"})
-		return
-	}
-	if req.MaHang == "" {
-		c.JSON(400, gin.H{"error": "ma_hang is required"})
-		return
-	}
-
-	item, err := h.Kanban.CreateInbound(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(201, item)
-}
-
-func (h *Handlers) MoveKanbanInbound(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	var req domain.MoveKanbanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	if err := h.Kanban.MoveInbound(c.Request.Context(), id, req.ToStage, req.UserID); err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(200, gin.H{"status": "ok"})
-}
-
-// --- Kanban Outbound ---
-
-func (h *Handlers) ListKanbanOutbound(c *gin.Context) {
-	items, err := h.Kanban.ListOutbound(c.Request.Context())
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-	c.JSON(200, items)
-}
-
-func (h *Handlers) CreateKanbanOutbound(c *gin.Context) {
-	var req domain.CreateKanbanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request body"})
-		return
-	}
-	if req.MaHang == "" {
-		c.JSON(400, gin.H{"error": "ma_hang is required"})
-		return
-	}
-
-	item, err := h.Kanban.CreateOutbound(c.Request.Context(), req)
-	if err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(201, item)
-}
-
-func (h *Handlers) MoveKanbanOutbound(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
-	if err != nil {
-		c.JSON(400, gin.H{"error": "invalid id"})
-		return
-	}
-
-	var req domain.MoveKanbanRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(400, gin.H{"error": "invalid request body"})
-		return
-	}
-
-	negativeAlert, err := h.Kanban.MoveOutbound(c.Request.Context(), id, req.ToStage, req.UserID)
-	if err != nil {
-		c.JSON(400, gin.H{"error": err.Error()})
-		return
-	}
-
-	resp := gin.H{"status": "ok"}
-	if negativeAlert {
-		resp["warning"] = "NEGATIVE_STOCK"
-		resp["message"] = "Stock went negative after this outbound"
-	}
-
-	c.JSON(200, resp)
 }
 
 // --- Import ---
