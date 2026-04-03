@@ -36,15 +36,5 @@ services:
         "postgres://wms:wms_secret@postgres:5432/wms?sslmode=disable",
         "up",
       ]
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
-    ports:
-      - "8123:8123"
-      - "9000:9000"
-    volumes:
-      - chdata:/var/lib/clickhouse
-
 volumes:
   pgdata:
-  chdata:
