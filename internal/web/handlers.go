@@ -141,7 +141,16 @@ func (h *Handlers) ImportFile(fileType string) gin.HandlerFunc {
 			return
 		}
 
-		// Save to temp file (avoid Gin's SaveUploadedFile which tries to chmod /tmp)
+		// Save to shared upload dir (accessible by both API and Worker containers)
+		uploadDir := os.Getenv("UPLOAD_DIR")
+		if uploadDir == "" {
+			uploadDir = "/app/uploads"
+		}
+		if err := os.MkdirAll(uploadDir, 0755); err != nil {
+			c.JSON(500, gin.H{"error": "failed to create upload dir: " + err.Error()})
+			return
+		}
+
 		src, err := file.Open()
 		if err != nil {
 			c.JSON(500, gin.H{"error": "failed to open uploaded file: " + err.Error()})
@@ -150,7 +159,7 @@ func (h *Handlers) ImportFile(fileType string) gin.HandlerFunc {
 		defer src.Close()
 
 		ext := filepath.Ext(file.Filename)
-		tmpFile, err := os.CreateTemp("", "wms_import_*"+ext)
+		tmpFile, err := os.CreateTemp(uploadDir, "wms_import_*"+ext)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "failed to create temp file: " + err.Error()})
 			return

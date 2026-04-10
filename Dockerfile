@@ -46,6 +46,7 @@ COPY --from=builder /api .
 COPY --from=frontend /web/dist web/dist/
 COPY migrations/ migrations/
 
+RUN mkdir -p /app/uploads
 RUN chown -R wms:wms /app
 USER wms
 

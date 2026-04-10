@@ -31,7 +31,12 @@ func NewRedisQueue() (*RedisQueue, error) {
 		addr = "localhost:6379"
 	}
 
-	client := redis.NewClient(&redis.Options{Addr: addr})
+	password := os.Getenv("REDIS_PASSWORD")
+
+	client := redis.NewClient(&redis.Options{
+		Addr:     addr,
+		Password: password,
+	})
 
 	if err := client.Ping(context.Background()).Err(); err != nil {
 		return nil, fmt.Errorf("redis ping: %w", err)

@@ -23,6 +23,7 @@ services:
         limits:
           memory: 256M
   migrate:
+    profiles: [""]
     environment:
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     command:
@@ -43,6 +44,8 @@ services:
     environment:
       POSTGRES_DSN: postgres://wms:${POSTGRES_PASSWORD}@postgres:5432/wms?sslmode=disable
       REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      UPLOAD_DIR: /app/uploads
       STATIC_DIR: web/dist
       PORT: "8080"
     depends_on:
@@ -53,6 +56,8 @@ services:
       migrate:
         condition: service_completed_successfully
     restart: always
+    volumes:
+      - uploads:/app/uploads
     deploy:
       resources:
         limits:
@@ -65,6 +70,8 @@ services:
     environment:
       POSTGRES_DSN: postgres://wms:${POSTGRES_PASSWORD}@postgres:5432/wms?sslmode=disable
       REDIS_ADDR: redis:6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-}
+      UPLOAD_DIR: /app/uploads
     depends_on:
       postgres:
         condition: service_healthy
