@@ -75,6 +75,7 @@ type RestockAlertItem struct {
 // ThresholdRequest is the POST body for saving a threshold
 type ThresholdRequest struct {
 	MaHang        string     `json:"ma_hang" binding:"required"`
+	WarehouseID   int64      `json:"warehouse_id" binding:"required"`
 	MinQty        float64    `json:"min_qty"`
 	OptimalQty    float64    `json:"optimal_qty"`
 	MaxAgeDays    float64    `json:"max_age_days"`

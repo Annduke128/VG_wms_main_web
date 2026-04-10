@@ -58,16 +58,16 @@ func (r *PostgresRepo) UpsertInventory(ctx context.Context, items []domain.Inven
 	success := 0
 	for _, item := range items {
 		_, err := r.Pool.Exec(ctx,
-			`INSERT INTO inventory_main (ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
+			`INSERT INTO inventory_main (ma_hang, warehouse_id, ten_san_pham, so_ton, so_nhap, so_xuat,
 			  tien_ton, tien_nhap, tien_xuat, so_ngay_ton, luong_ban_binh_quan_ngay)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
-			 ON CONFLICT (ma_hang) DO UPDATE SET
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+			 ON CONFLICT (ma_hang, warehouse_id) DO UPDATE SET
 			  ten_san_pham=EXCLUDED.ten_san_pham, so_ton=EXCLUDED.so_ton,
 			  so_nhap=EXCLUDED.so_nhap, so_xuat=EXCLUDED.so_xuat,
 			  tien_ton=EXCLUDED.tien_ton, tien_nhap=EXCLUDED.tien_nhap,
 			  tien_xuat=EXCLUDED.tien_xuat, so_ngay_ton=EXCLUDED.so_ngay_ton,
 			  luong_ban_binh_quan_ngay=EXCLUDED.luong_ban_binh_quan_ngay`,
-			item.MaHang, item.TenSanPham, item.SoTon, item.SoNhap, item.SoXuat,
+			item.MaHang, item.WarehouseID, item.TenSanPham, item.SoTon, item.SoNhap, item.SoXuat,
 			item.TienTon, item.TienNhap, item.TienXuat, item.SoNgayTon,
 			item.LuongBanBinhQuanNgay)
 		if err != nil {
@@ -83,10 +83,10 @@ func (r *PostgresRepo) InsertInboundItems(ctx context.Context, items []domain.In
 	success := 0
 	for _, item := range items {
 		_, err := r.Pool.Exec(ctx,
-			`INSERT INTO inbound_items (ma_hang, ten_san_pham, don_vi_tinh, quy_cach,
+			`INSERT INTO inbound_items (ma_hang, warehouse_id, ten_san_pham, don_vi_tinh, quy_cach,
 			  so_luong, doanh_so, chiet_khau, so_luong_tra_lai, doanh_thu, von, lai_gop, ti_le_lai_gop, ngay_nhan_hang)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-			item.MaHang, item.TenSanPham, item.DonViTinh, item.QuyCach,
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+			item.MaHang, item.WarehouseID, item.TenSanPham, item.DonViTinh, item.QuyCach,
 			item.SoLuong, item.DoanhSo, item.ChietKhau, item.SoLuongTraLai,
 			item.DoanhThu, item.Von, item.LaiGop, item.TiLeLaiGop, item.NgayNhanHang)
 		if err != nil {
@@ -102,10 +102,10 @@ func (r *PostgresRepo) InsertOutboundItems(ctx context.Context, items []domain.I
 	success := 0
 	for _, item := range items {
 		_, err := r.Pool.Exec(ctx,
-			`INSERT INTO outbound_items (ma_hang, ten_san_pham, don_vi_tinh, quy_cach,
+			`INSERT INTO outbound_items (ma_hang, warehouse_id, ten_san_pham, don_vi_tinh, quy_cach,
 			  so_luong, doanh_so, chiet_khau, so_luong_tra_lai, doanh_thu, von, lai_gop, ti_le_lai_gop, ngay_nhan_hang)
-			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13)`,
-			item.MaHang, item.TenSanPham, item.DonViTinh, item.QuyCach,
+			 VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+			item.MaHang, item.WarehouseID, item.TenSanPham, item.DonViTinh, item.QuyCach,
 			item.SoLuong, item.DoanhSo, item.ChietKhau, item.SoLuongTraLai,
 			item.DoanhThu, item.Von, item.LaiGop, item.TiLeLaiGop, item.NgayNhanHang)
 		if err != nil {
@@ -130,7 +130,7 @@ func (r *PostgresRepo) CreateAsyncJob(ctx context.Context, jobID, jobType, paylo
 // 3. Insert inbound_items (with batch_code)
 // 4. Upsert inventory_lots
 // Best-effort: each row independent, skip on error.
-func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.InventoryFullRow) (int, error) {
+func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.InventoryFullRow, warehouseID int64) (int, error) {
 	success := 0
 	for _, row := range rows {
 		// 1. Upsert product (ngay_cap_nhat uses value from parser directly)
@@ -156,13 +156,13 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 
 		// 2. Upsert inventory_main (so_nhap/so_xuat not touched — computed from orders)
 		_, err = r.Pool.Exec(ctx,
-			`INSERT INTO inventory_main (ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
+			`INSERT INTO inventory_main (ma_hang, warehouse_id, ten_san_pham, so_ton, so_nhap, so_xuat,
 			  tien_ton, tien_nhap, tien_xuat)
-			 VALUES ($1,$2,$3,0,0,$4,0,0)
-			 ON CONFLICT (ma_hang) DO UPDATE SET
+			 VALUES ($1,$2,$3,$4,0,0,$5,0,0)
+			 ON CONFLICT (ma_hang, warehouse_id) DO UPDATE SET
 			  ten_san_pham=EXCLUDED.ten_san_pham, so_ton=EXCLUDED.so_ton,
 			  tien_ton=EXCLUDED.tien_ton`,
-			row.Inventory.MaHang, row.Inventory.TenSanPham, row.Inventory.SoTon,
+			row.Inventory.MaHang, warehouseID, row.Inventory.TenSanPham, row.Inventory.SoTon,
 			row.Inventory.TienTon)
 		if err != nil {
 			continue
@@ -170,11 +170,11 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 
 		// 3. Insert inbound_items
 		_, err = r.Pool.Exec(ctx,
-			`INSERT INTO inbound_items (ma_hang, ten_san_pham, don_vi_tinh, quy_cach,
+			`INSERT INTO inbound_items (ma_hang, warehouse_id, ten_san_pham, don_vi_tinh, quy_cach,
 			  so_luong, doanh_so, chiet_khau, so_luong_tra_lai, doanh_thu, von,
 			  lai_gop, ti_le_lai_gop, ngay_nhan_hang, batch_code)
-			 VALUES ($1,$2,$3,$4,$5,0,0,0,0,0,0,0,$6,$7)`,
-			row.Inbound.MaHang, row.Inbound.TenSanPham, row.Inbound.DonViTinh,
+			 VALUES ($1,$2,$3,$4,$5,$6,0,0,0,0,0,0,0,$7,$8)`,
+			row.Inbound.MaHang, warehouseID, row.Inbound.TenSanPham, row.Inbound.DonViTinh,
 			row.Inbound.QuyCach, row.Inbound.SoLuong,
 			row.Inbound.NgayNhanHang, row.Inbound.BatchCode)
 		if err != nil {
@@ -183,12 +183,12 @@ func (r *PostgresRepo) ImportInventoryFull(ctx context.Context, rows []importer.
 
 		// 4. Upsert inventory_lots
 		_, err = r.Pool.Exec(ctx,
-			`INSERT INTO inventory_lots (ma_hang, batch_code, received_at, qty_in, qty_out, qty_remaining)
-			 VALUES ($1, $2, $3, $4, 0, $4)
-			 ON CONFLICT (ma_hang, batch_code) DO UPDATE SET
+			`INSERT INTO inventory_lots (ma_hang, batch_code, warehouse_id, received_at, qty_in, qty_out, qty_remaining)
+			 VALUES ($1, $2, $3, $4, $5, 0, $5)
+			 ON CONFLICT (ma_hang, batch_code, warehouse_id) DO UPDATE SET
 			  qty_in = inventory_lots.qty_in + EXCLUDED.qty_in,
 			  qty_remaining = inventory_lots.qty_remaining + EXCLUDED.qty_in`,
-			row.Inbound.MaHang, row.Inbound.BatchCode, row.Inbound.NgayNhanHang, row.Inbound.SoLuong)
+			row.Inbound.MaHang, row.Inbound.BatchCode, warehouseID, row.Inbound.NgayNhanHang, row.Inbound.SoLuong)
 		if err != nil {
 			continue
 		}

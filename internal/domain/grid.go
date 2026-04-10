@@ -4,6 +4,7 @@ package domain
 type GridRequest struct {
 	StartRow    int                   `json:"startRow"`
 	EndRow      int                   `json:"endRow"`
+	WarehouseID int64                 `json:"warehouse_id"`
 	SortModel   []SortItem            `json:"sortModel"`
 	FilterModel map[string]FilterItem `json:"filterModel"`
 }
@@ -29,7 +30,8 @@ type GridResponse struct {
 
 // BulkUpdateRequest for async bulk operations
 type BulkUpdateRequest struct {
-	Updates []BulkUpdateItem `json:"updates"`
+	WarehouseID int64            `json:"warehouse_id"`
+	Updates     []BulkUpdateItem `json:"updates"`
 }
 
 type BulkUpdateItem struct {

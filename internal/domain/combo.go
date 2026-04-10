@@ -41,12 +41,13 @@ type ComboDetail struct {
 // --- Combo Inventory ---
 
 type ComboInventory struct {
-	MaCombo   string    `json:"ma_combo" db:"ma_combo"`
-	SoTon     float64   `json:"so_ton" db:"so_ton"`
-	SoNhap    float64   `json:"so_nhap" db:"so_nhap"`
-	SoXuat    float64   `json:"so_xuat" db:"so_xuat"`
-	SoTra     float64   `json:"so_tra" db:"so_tra"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	MaCombo     string    `json:"ma_combo" db:"ma_combo"`
+	WarehouseID int64     `json:"warehouse_id" db:"warehouse_id"`
+	SoTon       float64   `json:"so_ton" db:"so_ton"`
+	SoNhap      float64   `json:"so_nhap" db:"so_nhap"`
+	SoXuat      float64   `json:"so_xuat" db:"so_xuat"`
+	SoTra       float64   `json:"so_tra" db:"so_tra"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 	// Joined for display
 	TenCombo string `json:"ten_combo,omitempty" db:"ten_combo"`
 }
@@ -56,6 +57,7 @@ type ComboInventory struct {
 type ComboTransaction struct {
 	ID              int64     `json:"id" db:"id"`
 	MaCombo         string    `json:"ma_combo" db:"ma_combo"`
+	WarehouseID     int64     `json:"warehouse_id" db:"warehouse_id"`
 	TransactionType string    `json:"transaction_type" db:"transaction_type"` // CREATE, CANCEL, OUT, RETURN
 	SoLuong         float64   `json:"so_luong" db:"so_luong"`
 	Note            string    `json:"note" db:"note"`
@@ -67,6 +69,7 @@ type ComboTransaction struct {
 type ComboComponentMovement struct {
 	ID                 int64   `json:"id" db:"id"`
 	ComboTransactionID int64   `json:"combo_transaction_id" db:"combo_transaction_id"`
+	WarehouseID        int64   `json:"warehouse_id" db:"warehouse_id"`
 	ComponentType      string  `json:"component_type" db:"component_type"` // SEMI, ACCESSORY
 	MaComponent        string  `json:"ma_component" db:"ma_component"`
 	SoLuong            float64 `json:"so_luong" db:"so_luong"`
@@ -83,9 +86,10 @@ type Accessory struct {
 }
 
 type AccessoryInventory struct {
-	MaPhuKien string    `json:"ma_phu_kien" db:"ma_phu_kien"`
-	SoTon     float64   `json:"so_ton" db:"so_ton"`
-	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+	MaPhuKien   string    `json:"ma_phu_kien" db:"ma_phu_kien"`
+	WarehouseID int64     `json:"warehouse_id" db:"warehouse_id"`
+	SoTon       float64   `json:"so_ton" db:"so_ton"`
+	UpdatedAt   time.Time `json:"updated_at" db:"updated_at"`
 	// Joined for display
 	TenPhuKien string `json:"ten_phu_kien,omitempty" db:"ten_phu_kien"`
 	DonViTinh  string `json:"don_vi_tinh,omitempty" db:"don_vi_tinh"`
@@ -94,6 +98,7 @@ type AccessoryInventory struct {
 type AccessoryMovement struct {
 	ID           int64     `json:"id" db:"id"`
 	MaPhuKien    string    `json:"ma_phu_kien" db:"ma_phu_kien"`
+	WarehouseID  int64     `json:"warehouse_id" db:"warehouse_id"`
 	MovementType string    `json:"movement_type" db:"movement_type"` // IN, OUT, RETURN
 	SoLuong      float64   `json:"so_luong" db:"so_luong"`
 	Note         string    `json:"note" db:"note"`
@@ -103,31 +108,36 @@ type AccessoryMovement struct {
 // --- Request types ---
 
 type CreateComboRequest struct {
-	MaCombo string  `json:"ma_combo"`
-	SoLuong float64 `json:"so_luong"`
-	Note    string  `json:"note"`
+	MaCombo     string  `json:"ma_combo"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	SoLuong     float64 `json:"so_luong"`
+	Note        string  `json:"note"`
 }
 
 type CancelComboRequest struct {
-	MaCombo string  `json:"ma_combo"`
-	SoLuong float64 `json:"so_luong"`
-	Note    string  `json:"note"`
+	MaCombo     string  `json:"ma_combo"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	SoLuong     float64 `json:"so_luong"`
+	Note        string  `json:"note"`
 }
 
 type ComboOutRequest struct {
-	MaCombo string  `json:"ma_combo"`
-	SoLuong float64 `json:"so_luong"`
-	Note    string  `json:"note"`
+	MaCombo     string  `json:"ma_combo"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	SoLuong     float64 `json:"so_luong"`
+	Note        string  `json:"note"`
 }
 
 type ComboReturnRequest struct {
-	MaCombo string  `json:"ma_combo"`
-	SoLuong float64 `json:"so_luong"`
-	Note    string  `json:"note"`
+	MaCombo     string  `json:"ma_combo"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	SoLuong     float64 `json:"so_luong"`
+	Note        string  `json:"note"`
 }
 
 type SaveComboMasterRequest struct {
 	MaCombo      string           `json:"ma_combo"`
+	WarehouseID  int64            `json:"warehouse_id"`
 	TenCombo     string           `json:"ten_combo"`
 	MoTa         string           `json:"mo_ta"`
 	BOMSemi      []BOMItemRequest `json:"bom_semi"`
@@ -140,9 +150,10 @@ type BOMItemRequest struct {
 }
 
 type AccessoryStockInRequest struct {
-	MaPhuKien string  `json:"ma_phu_kien"`
-	SoLuong   float64 `json:"so_luong"`
-	Note      string  `json:"note"`
+	MaPhuKien   string  `json:"ma_phu_kien"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	SoLuong     float64 `json:"so_luong"`
+	Note        string  `json:"note"`
 }
 
 type CreateAccessoryRequest struct {

@@ -6,6 +6,8 @@ import (
 )
 
 // ResetAllData truncates all business data tables, preserving schema and migrations.
+// NOTE: The 'warehouses' table is intentionally NOT truncated — warehouse definitions
+// are infrastructure config, not transactional data. Reset clears business data only.
 func (r *PostgresRepo) ResetAllData(ctx context.Context) error {
 	// Order matters: truncate tables with FK dependencies first, or use CASCADE.
 	// Using a single TRUNCATE with CASCADE for safety.

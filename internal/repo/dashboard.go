@@ -11,12 +11,12 @@ import (
 )
 
 // GetDashboardSummary returns the 4 KPI values
-func (r *PostgresRepo) GetDashboardSummary(ctx context.Context) (*domain.DashboardSummary, error) {
+func (r *PostgresRepo) GetDashboardSummary(ctx context.Context, warehouseID int64) (*domain.DashboardSummary, error) {
 	var summary domain.DashboardSummary
 
 	// SKU count = distinct products with stock
 	err := r.Pool.QueryRow(ctx,
-		`SELECT COUNT(*) FROM inventory_main WHERE so_ton > 0`).Scan(&summary.SKUCount)
+		`SELECT COUNT(*) FROM inventory_main WHERE so_ton > 0 AND warehouse_id = $1`, warehouseID).Scan(&summary.SKUCount)
 	if err != nil {
 		return nil, fmt.Errorf("sku count: %w", err)
 	}
@@ -25,7 +25,8 @@ func (r *PostgresRepo) GetDashboardSummary(ctx context.Context) (*domain.Dashboa
 	err = r.Pool.QueryRow(ctx,
 		`SELECT COALESCE(SUM(im.so_ton * p.don_gia), 0)
 		 FROM inventory_main im
-		 JOIN products p ON im.ma_hang = p.ma_hang`).Scan(&summary.TongTienHang)
+		 JOIN products p ON im.ma_hang = p.ma_hang
+		 WHERE im.warehouse_id = $1`, warehouseID).Scan(&summary.TongTienHang)
 	if err != nil {
 		return nil, fmt.Errorf("tong tien hang: %w", err)
 	}
@@ -35,10 +36,12 @@ func (r *PostgresRepo) GetDashboardSummary(ctx context.Context) (*domain.Dashboa
 		`SELECT COUNT(DISTINCT im.ma_hang)
 		 FROM inventory_main im
 		 JOIN inventory_thresholds it ON im.ma_hang = it.ma_hang
+		   AND it.warehouse_id = $1
 		   AND it.effective_from <= NOW()
 		   AND (it.effective_to IS NULL OR it.effective_to > NOW())
-		 WHERE im.so_ton >= it.optimal_qty
-		   AND im.so_ngay_ton >= it.max_age_days`).Scan(&summary.SKUTonLau)
+		 WHERE im.warehouse_id = $1
+		   AND im.so_ton >= it.optimal_qty
+		   AND im.so_ngay_ton >= it.max_age_days`, warehouseID).Scan(&summary.SKUTonLau)
 	if err != nil {
 		return nil, fmt.Errorf("sku ton lau: %w", err)
 	}
@@ -48,9 +51,11 @@ func (r *PostgresRepo) GetDashboardSummary(ctx context.Context) (*domain.Dashboa
 		`SELECT COUNT(DISTINCT im.ma_hang)
 		 FROM inventory_main im
 		 JOIN inventory_thresholds it ON im.ma_hang = it.ma_hang
+		   AND it.warehouse_id = $1
 		   AND it.effective_from <= NOW()
 		   AND (it.effective_to IS NULL OR it.effective_to > NOW())
-		 WHERE im.so_ton < it.min_qty`).Scan(&summary.SKUThieuHang)
+		 WHERE im.warehouse_id = $1
+		   AND im.so_ton < it.min_qty`, warehouseID).Scan(&summary.SKUThieuHang)
 	if err != nil {
 		return nil, fmt.Errorf("sku thieu hang: %w", err)
 	}
@@ -59,7 +64,7 @@ func (r *PostgresRepo) GetDashboardSummary(ctx context.Context) (*domain.Dashboa
 }
 
 // GetInboundOutboundByWeek returns inbound/outbound totals per week for last N weeks
-func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, weeks int) ([]domain.InOutWeekData, error) {
+func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, warehouseID int64, weeks int) ([]domain.InOutWeekData, error) {
 	query := `
 		WITH weeks AS (
 			SELECT generate_series(
@@ -73,6 +78,7 @@ func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, weeks int) 
 			       COALESCE(SUM(so_luong), 0) AS total
 			FROM inbound_items
 			WHERE ngay_nhan_hang >= date_trunc('week', NOW()) - ($1 - 1) * interval '1 week'
+			  AND warehouse_id = $2
 			GROUP BY 1
 		),
 		outbound_agg AS (
@@ -80,6 +86,7 @@ func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, weeks int) 
 			       COALESCE(SUM(so_luong), 0) AS total
 			FROM outbound_items
 			WHERE ngay_nhan_hang >= date_trunc('week', NOW()) - ($1 - 1) * interval '1 week'
+			  AND warehouse_id = $2
 			GROUP BY 1
 		)
 		SELECT
@@ -93,7 +100,7 @@ func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, weeks int) 
 		ORDER BY w.week_start
 	`
 
-	rows, err := r.Pool.Query(ctx, query, weeks)
+	rows, err := r.Pool.Query(ctx, query, weeks, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("inbound/outbound by week: %w", err)
 	}
@@ -103,20 +110,22 @@ func (r *PostgresRepo) GetInboundOutboundByWeek(ctx context.Context, weeks int) 
 }
 
 // GetInventoryVsOptimal returns top SKUs with their current stock vs optimal
-func (r *PostgresRepo) GetInventoryVsOptimal(ctx context.Context, limit int) ([]domain.InventoryVsOptimalItem, error) {
+func (r *PostgresRepo) GetInventoryVsOptimal(ctx context.Context, warehouseID int64, limit int) ([]domain.InventoryVsOptimalItem, error) {
 	query := `
 		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
 		       COALESCE(it.optimal_qty, 0) AS optimal_qty
 		FROM inventory_main im
 		LEFT JOIN inventory_thresholds it ON im.ma_hang = it.ma_hang
+		  AND it.warehouse_id = $1
 		  AND it.effective_from <= NOW()
 		  AND (it.effective_to IS NULL OR it.effective_to > NOW())
-		WHERE im.so_ton > 0
+		WHERE im.warehouse_id = $1
+		  AND im.so_ton > 0
 		ORDER BY im.so_ton DESC
-		LIMIT $1
+		LIMIT $2
 	`
 
-	rows, err := r.Pool.Query(ctx, query, limit)
+	rows, err := r.Pool.Query(ctx, query, warehouseID, limit)
 	if err != nil {
 		return nil, fmt.Errorf("inventory vs optimal: %w", err)
 	}
@@ -126,7 +135,7 @@ func (r *PostgresRepo) GetInventoryVsOptimal(ctx context.Context, limit int) ([]
 }
 
 // GetAlerts returns inventory alerts (tồn lâu + thiếu hàng)
-func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error) {
+func (r *PostgresRepo) GetAlerts(ctx context.Context, warehouseID int64) ([]domain.AlertItem, error) {
 	query := `
 		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
 		       'ton_lau' AS alert_type,
@@ -136,9 +145,11 @@ func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error
 		       0 AS min_qty
 		FROM inventory_main im
 		JOIN inventory_thresholds it ON im.ma_hang = it.ma_hang
+		  AND it.warehouse_id = $1
 		  AND it.effective_from <= NOW()
 		  AND (it.effective_to IS NULL OR it.effective_to > NOW())
-		WHERE im.so_ton >= it.optimal_qty
+		WHERE im.warehouse_id = $1
+		  AND im.so_ton >= it.optimal_qty
 		  AND im.so_ngay_ton >= it.max_age_days
 
 		UNION ALL
@@ -151,14 +162,16 @@ func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error
 		       it.min_qty
 		FROM inventory_main im
 		JOIN inventory_thresholds it ON im.ma_hang = it.ma_hang
+		  AND it.warehouse_id = $1
 		  AND it.effective_from <= NOW()
 		  AND (it.effective_to IS NULL OR it.effective_to > NOW())
-		WHERE im.so_ton < it.min_qty
+		WHERE im.warehouse_id = $1
+		  AND im.so_ton < it.min_qty
 
 		ORDER BY alert_type, ma_hang
 	`
 
-	rows, err := r.Pool.Query(ctx, query)
+	rows, err := r.Pool.Query(ctx, query, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("get alerts: %w", err)
 	}
@@ -183,7 +196,7 @@ func (r *PostgresRepo) GetAlerts(ctx context.Context) ([]domain.AlertItem, error
 }
 
 // GetZeroSalesSKUs returns SKUs with LBBQ=0 and so_ton>0 (zero sales)
-func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSalesItem, error) {
+func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context, warehouseID int64) ([]domain.ZeroSalesItem, error) {
 	query := `
 		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
 		       COALESCE(im.luong_ban_binh_quan_ngay, 0) AS luong_ban_binh_quan_ngay,
@@ -192,14 +205,16 @@ func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSales
 		LEFT JOIN (
 			SELECT ma_hang, MAX(ngay_nhan_hang) AS latest_out
 			FROM outbound_items
+			WHERE warehouse_id = $1
 			GROUP BY ma_hang
 		) sub ON im.ma_hang = sub.ma_hang
-		WHERE im.so_ton > 0
+		WHERE im.warehouse_id = $1
+		  AND im.so_ton > 0
 		  AND im.luong_ban_binh_quan_ngay IS NULL
 		ORDER BY im.so_ton DESC
 	`
 
-	rows, err := r.Pool.Query(ctx, query)
+	rows, err := r.Pool.Query(ctx, query, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("get zero sales: %w", err)
 	}
@@ -222,7 +237,7 @@ func (r *PostgresRepo) GetZeroSalesSKUs(ctx context.Context) ([]domain.ZeroSales
 }
 
 // GetRestockAlerts returns SKUs that were sold before, now so_ton=0, 1-7 days since last outbound
-func (r *PostgresRepo) GetRestockAlerts(ctx context.Context) ([]domain.RestockAlertItem, error) {
+func (r *PostgresRepo) GetRestockAlerts(ctx context.Context, warehouseID int64) ([]domain.RestockAlertItem, error) {
 	query := `
 		SELECT im.ma_hang, im.ten_san_pham, im.so_ton,
 		       CASE
@@ -239,15 +254,17 @@ func (r *PostgresRepo) GetRestockAlerts(ctx context.Context) ([]domain.RestockAl
 		LEFT JOIN (
 			SELECT ma_hang, MAX(ngay_nhan_hang) AS last_out
 			FROM outbound_items
+			WHERE warehouse_id = $1
 			GROUP BY ma_hang
 		) sub ON im.ma_hang = sub.ma_hang
-		WHERE im.so_ton = 0
+		WHERE im.warehouse_id = $1
+		  AND im.so_ton = 0
 		  AND sub.last_out IS NOT NULL
 		  AND EXTRACT(DAY FROM NOW() - sub.last_out) BETWEEN 1 AND 7
 		ORDER BY EXTRACT(DAY FROM NOW() - sub.last_out) ASC
 	`
 
-	rows, err := r.Pool.Query(ctx, query)
+	rows, err := r.Pool.Query(ctx, query, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("get restock alerts: %w", err)
 	}
@@ -270,16 +287,17 @@ func (r *PostgresRepo) GetRestockAlerts(ctx context.Context) ([]domain.RestockAl
 }
 
 // GetThresholdsByMaHang returns active threshold + history for a SKU
-func (r *PostgresRepo) GetThresholdsByMaHang(ctx context.Context, maHang string) ([]domain.InventoryThreshold, error) {
+func (r *PostgresRepo) GetThresholdsByMaHang(ctx context.Context, maHang string, warehouseID int64) ([]domain.InventoryThreshold, error) {
 	query := `
 		SELECT id, ma_hang, min_qty, optimal_qty, max_age_days,
 		       source, model_version, effective_from, effective_to, created_at
 		FROM inventory_thresholds
 		WHERE ma_hang = $1
+		  AND warehouse_id = $2
 		ORDER BY created_at DESC
 	`
 
-	rows, err := r.Pool.Query(ctx, query, maHang)
+	rows, err := r.Pool.Query(ctx, query, maHang, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("get thresholds: %w", err)
 	}
@@ -317,10 +335,11 @@ func (r *PostgresRepo) SaveThresholdEntry(ctx context.Context, req domain.Thresh
 	_, err = tx.Exec(ctx,
 		`UPDATE inventory_thresholds
 		 SET effective_to = $1
-		 WHERE ma_hang = $2
+		 WHERE warehouse_id = $2
+		   AND ma_hang = $3
 		   AND effective_from <= $1
 		   AND (effective_to IS NULL OR effective_to > $1)`,
-		now, req.MaHang)
+		now, req.WarehouseID, req.MaHang)
 	if err != nil {
 		return nil, fmt.Errorf("close active threshold: %w", err)
 	}
@@ -339,10 +358,10 @@ func (r *PostgresRepo) SaveThresholdEntry(ctx context.Context, req domain.Thresh
 	// Insert new threshold
 	var t domain.InventoryThreshold
 	err = tx.QueryRow(ctx,
-		`INSERT INTO inventory_thresholds (ma_hang, min_qty, optimal_qty, max_age_days, source, model_version, effective_from, effective_to)
-		 VALUES ($1, $2, $3, $4, $5, '', $6, $7)
+		`INSERT INTO inventory_thresholds (ma_hang, warehouse_id, min_qty, optimal_qty, max_age_days, source, model_version, effective_from, effective_to)
+		 VALUES ($1, $2, $3, $4, $5, $6, '', $7, $8)
 		 RETURNING id, ma_hang, min_qty, optimal_qty, max_age_days, source, model_version, effective_from, effective_to, created_at`,
-		req.MaHang, req.MinQty, req.OptimalQty, req.MaxAgeDays, source, effectiveFrom, req.EffectiveTo,
+		req.MaHang, req.WarehouseID, req.MinQty, req.OptimalQty, req.MaxAgeDays, source, effectiveFrom, req.EffectiveTo,
 	).Scan(&t.ID, &t.MaHang, &t.MinQty, &t.OptimalQty, &t.MaxAgeDays,
 		&t.Source, &t.ModelVersion, &t.EffectiveFrom, &t.EffectiveTo, &t.CreatedAt)
 	if err != nil {

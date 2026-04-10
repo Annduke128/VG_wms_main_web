@@ -6,6 +6,7 @@ import "time"
 type CreateInboundRequest struct {
 	MaHang       string  `json:"ma_hang"`
 	TenSanPham   string  `json:"ten_san_pham"`
+	WarehouseID  int64   `json:"warehouse_id" binding:"required"`
 	DonViTinh    string  `json:"don_vi_tinh"`
 	QuyCach      string  `json:"quy_cach"`
 	SoLuong      float64 `json:"so_luong"`
@@ -19,15 +20,16 @@ type CreateInboundRequest struct {
 
 // CreateOutboundRequest — tạo đơn xuất kho (hệ thống tự FIFO)
 type CreateOutboundRequest struct {
-	MaHang     string  `json:"ma_hang"`
-	TenSanPham string  `json:"ten_san_pham"`
-	DonViTinh  string  `json:"don_vi_tinh"`
-	QuyCach    string  `json:"quy_cach"`
-	SoLuong    float64 `json:"so_luong"` // tổng số lượng cần xuất
-	DoanhSo    float64 `json:"doanh_so"`
-	ChietKhau  float64 `json:"chiet_khau"`
-	DoanhThu   float64 `json:"doanh_thu"`
-	Von        float64 `json:"von"`
+	MaHang      string  `json:"ma_hang"`
+	TenSanPham  string  `json:"ten_san_pham"`
+	WarehouseID int64   `json:"warehouse_id" binding:"required"`
+	DonViTinh   string  `json:"don_vi_tinh"`
+	QuyCach     string  `json:"quy_cach"`
+	SoLuong     float64 `json:"so_luong"` // tổng số lượng cần xuất
+	DoanhSo     float64 `json:"doanh_so"`
+	ChietKhau   float64 `json:"chiet_khau"`
+	DoanhThu    float64 `json:"doanh_thu"`
+	Von         float64 `json:"von"`
 }
 
 // OutboundAllocation — kết quả FIFO allocation cho 1 lot
@@ -52,13 +54,14 @@ type OutboundResult struct {
 
 // OrderFilter — filter params cho danh sách đơn hàng
 type OrderFilter struct {
-	OrderType  string    // "in", "out", or "" for all
-	DateFrom   time.Time // zero = no lower bound
-	DateTo     time.Time // zero = no upper bound
-	MaBu       string    // filter by business unit (JOIN products)
-	MaNhomHang string    // filter by product group (JOIN products)
-	Limit      int
-	Offset     int
+	OrderType   string    // "in", "out", or "" for all
+	WarehouseID int64     // 0 = all warehouses
+	DateFrom    time.Time // zero = no lower bound
+	DateTo      time.Time // zero = no upper bound
+	MaBu        string    // filter by business unit (JOIN products)
+	MaNhomHang  string    // filter by product group (JOIN products)
+	Limit       int
+	Offset      int
 }
 
 // OrderListItem — row trong danh sách đơn hàng (UNION inbound + outbound)
@@ -67,6 +70,7 @@ type OrderListItem struct {
 	OrderType    string    `json:"order_type" db:"order_type"` // "IN" or "OUT"
 	MaHang       string    `json:"ma_hang" db:"ma_hang"`
 	TenSanPham   string    `json:"ten_san_pham" db:"ten_san_pham"`
+	WarehouseID  int64     `json:"warehouse_id" db:"warehouse_id"`
 	DonViTinh    string    `json:"don_vi_tinh" db:"don_vi_tinh"`
 	SoLuong      float64   `json:"so_luong" db:"so_luong"`
 	BatchCode    string    `json:"batch_code" db:"batch_code"`

@@ -35,10 +35,11 @@ func (r *PostgresRepo) CreateAccessory(ctx context.Context, tx pgx.Tx, acc *doma
 		return fmt.Errorf("insert accessory: %w", err)
 	}
 
-	// Create inventory row
+	// Create inventory rows for all active warehouses
 	_, err = tx.Exec(ctx, `
-		INSERT INTO accessory_inventory (ma_phu_kien, so_ton)
-		VALUES ($1, 0)`,
+		INSERT INTO accessory_inventory (ma_phu_kien, warehouse_id, so_ton)
+		SELECT $1, id, 0 FROM warehouses WHERE is_active = TRUE
+		ON CONFLICT (ma_phu_kien, warehouse_id) DO NOTHING`,
 		acc.MaPhuKien)
 	if err != nil {
 		return fmt.Errorf("insert accessory inventory: %w", err)
@@ -50,13 +51,14 @@ func (r *PostgresRepo) CreateAccessory(ctx context.Context, tx pgx.Tx, acc *doma
 // --- Accessory Inventory ---
 
 // GetAccessoryInventory returns all accessory inventory with names
-func (r *PostgresRepo) GetAccessoryInventory(ctx context.Context) ([]domain.AccessoryInventory, error) {
+func (r *PostgresRepo) GetAccessoryInventory(ctx context.Context, warehouseID int64) ([]domain.AccessoryInventory, error) {
 	rows, err := r.Pool.Query(ctx, `
-		SELECT ai.ma_phu_kien, ai.so_ton, ai.updated_at,
+		SELECT ai.ma_phu_kien, ai.warehouse_id, ai.so_ton, ai.updated_at,
 		       a.ten_phu_kien, a.don_vi_tinh
 		FROM accessory_inventory ai
 		JOIN accessories a ON a.ma_phu_kien = ai.ma_phu_kien
-		ORDER BY a.ten_phu_kien`)
+		WHERE ai.warehouse_id = $1
+		ORDER BY a.ten_phu_kien`, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("list accessory inventory: %w", err)
 	}
@@ -66,12 +68,12 @@ func (r *PostgresRepo) GetAccessoryInventory(ctx context.Context) ([]domain.Acce
 }
 
 // UpdateAccessoryStock adjusts accessory stock (positive = add, negative = subtract)
-func (r *PostgresRepo) UpdateAccessoryStock(ctx context.Context, tx pgx.Tx, maPhuKien string, delta float64) error {
+func (r *PostgresRepo) UpdateAccessoryStock(ctx context.Context, tx pgx.Tx, maPhuKien string, warehouseID int64, delta float64) error {
 	tag, err := tx.Exec(ctx, `
 		UPDATE accessory_inventory
-		SET so_ton = so_ton + $2, updated_at = NOW()
-		WHERE ma_phu_kien = $1`,
-		maPhuKien, delta)
+		SET so_ton = so_ton + $3, updated_at = NOW()
+		WHERE ma_phu_kien = $1 AND warehouse_id = $2`,
+		maPhuKien, warehouseID, delta)
 	if err != nil {
 		return fmt.Errorf("update accessory stock: %w", err)
 	}
@@ -82,12 +84,12 @@ func (r *PostgresRepo) UpdateAccessoryStock(ctx context.Context, tx pgx.Tx, maPh
 }
 
 // GetAccessoryStockForUpdate gets current stock with lock
-func (r *PostgresRepo) GetAccessoryStockForUpdate(ctx context.Context, tx pgx.Tx, maPhuKien string) (float64, error) {
+func (r *PostgresRepo) GetAccessoryStockForUpdate(ctx context.Context, tx pgx.Tx, maPhuKien string, warehouseID int64) (float64, error) {
 	var soTon float64
 	err := tx.QueryRow(ctx, `
 		SELECT so_ton FROM accessory_inventory
-		WHERE ma_phu_kien = $1
-		FOR UPDATE`, maPhuKien).Scan(&soTon)
+		WHERE ma_phu_kien = $1 AND warehouse_id = $2
+		FOR UPDATE`, maPhuKien, warehouseID).Scan(&soTon)
 	if err != nil {
 		return 0, fmt.Errorf("get accessory stock: %w", err)
 	}
@@ -95,11 +97,11 @@ func (r *PostgresRepo) GetAccessoryStockForUpdate(ctx context.Context, tx pgx.Tx
 }
 
 // InsertAccessoryMovement records an accessory movement
-func (r *PostgresRepo) InsertAccessoryMovement(ctx context.Context, tx pgx.Tx, maPhuKien, movementType string, soLuong float64, note string) error {
+func (r *PostgresRepo) InsertAccessoryMovement(ctx context.Context, tx pgx.Tx, maPhuKien, movementType string, soLuong float64, note string, warehouseID int64) error {
 	_, err := tx.Exec(ctx, `
-		INSERT INTO accessory_movements (ma_phu_kien, movement_type, so_luong, note)
-		VALUES ($1, $2, $3, $4)`,
-		maPhuKien, movementType, soLuong, note)
+		INSERT INTO accessory_movements (ma_phu_kien, movement_type, so_luong, note, warehouse_id)
+		VALUES ($1, $2, $3, $4, $5)`,
+		maPhuKien, movementType, soLuong, note, warehouseID)
 	if err != nil {
 		return fmt.Errorf("insert accessory movement: %w", err)
 	}

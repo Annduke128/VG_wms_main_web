@@ -25,13 +25,13 @@ func (s *InventoryService) GridQuery(ctx context.Context, req domain.GridRequest
 	return s.Repo.QueryInventoryGrid(ctx, req)
 }
 
-func (s *InventoryService) UpdateItem(ctx context.Context, maHang string, fields map[string]interface{}) error {
-	if err := s.Repo.UpdateInventoryItem(ctx, maHang, fields); err != nil {
+func (s *InventoryService) UpdateItem(ctx context.Context, maHang string, warehouseID int64, fields map[string]interface{}) error {
+	if err := s.Repo.UpdateInventoryItem(ctx, maHang, warehouseID, fields); err != nil {
 		return err
 	}
 
 	// Recalc metrics after grid edit
-	if recalcErr := s.Repo.RecalcMetricsForSKU(ctx, maHang); recalcErr != nil {
+	if recalcErr := s.Repo.RecalcMetricsForSKU(ctx, maHang, warehouseID); recalcErr != nil {
 		fmt.Printf("WARN: recalc after grid edit for %s: %v\n", maHang, recalcErr)
 	}
 	return nil
@@ -64,10 +64,10 @@ func (s *InventoryService) GetJob(ctx context.Context, jobID string) (*domain.As
 	return s.Repo.GetAsyncJob(ctx, jobID)
 }
 
-func (s *InventoryService) GetFilterOptions(ctx context.Context) (*repo.FilterOptions, error) {
-	return s.Repo.GetInventoryFilterOptions(ctx)
+func (s *InventoryService) GetFilterOptions(ctx context.Context, warehouseID int64) (*repo.FilterOptions, error) {
+	return s.Repo.GetInventoryFilterOptions(ctx, warehouseID)
 }
 
-func (s *InventoryService) ExportRows(ctx context.Context, maHangs []string, filterModel map[string]domain.FilterItem) ([]domain.InventoryMain, error) {
-	return s.Repo.QueryExportRows(ctx, maHangs, filterModel)
+func (s *InventoryService) ExportRows(ctx context.Context, maHangs []string, filterModel map[string]domain.FilterItem, warehouseID int64) ([]domain.InventoryMain, error) {
+	return s.Repo.QueryExportRows(ctx, maHangs, filterModel, warehouseID)
 }

@@ -21,7 +21,7 @@ func (r *PostgresRepo) QueryInventoryGrid(ctx context.Context, req domain.GridRe
 		        tien_ton, tien_nhap, tien_xuat, so_ngay_ton,
 		        COALESCE(luong_ban_binh_quan_ngay, 0) AS luong_ban_binh_quan_ngay,
 		        COALESCE(so_ngay_ton_ban, 0) AS so_ngay_ton_ban,
-		        don_gia, ma_bu, ma_nhom_hang
+		        don_gia, ma_bu, ma_nhom_hang, warehouse_id
 		 FROM (%s) _sub`, rawDataQuery)
 
 	// Get total count
@@ -49,7 +49,7 @@ func (r *PostgresRepo) QueryInventoryGrid(ctx context.Context, req domain.GridRe
 }
 
 // UpdateInventoryItem updates a single inventory row
-func (r *PostgresRepo) UpdateInventoryItem(ctx context.Context, maHang string, fields map[string]interface{}) error {
+func (r *PostgresRepo) UpdateInventoryItem(ctx context.Context, maHang string, warehouseID int64, fields map[string]interface{}) error {
 	// Build dynamic UPDATE
 	setClauses := []string{}
 	args := []interface{}{}
@@ -69,8 +69,10 @@ func (r *PostgresRepo) UpdateInventoryItem(ctx context.Context, maHang string, f
 	}
 
 	args = append(args, maHang)
-	query := fmt.Sprintf("UPDATE inventory_main SET %s WHERE ma_hang = $%d",
-		joinStrings(setClauses, ", "), idx)
+	warehouseIdx := idx + 1
+	args = append(args, warehouseID)
+	query := fmt.Sprintf("UPDATE inventory_main SET %s WHERE ma_hang = $%d AND warehouse_id = $%d",
+		joinStrings(setClauses, ", "), idx, warehouseIdx)
 
 	_, err := r.Pool.Exec(ctx, query, args...)
 	return err

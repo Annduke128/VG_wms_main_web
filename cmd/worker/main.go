@@ -63,12 +63,12 @@ func main() {
 			return err
 		}
 		for _, item := range req.Updates {
-			if err := pg.UpdateInventoryItem(ctx, item.MaHang, item.Fields); err != nil {
+			if err := pg.UpdateInventoryItem(ctx, item.MaHang, req.WarehouseID, item.Fields); err != nil {
 				log.Printf("bulk update error for %s: %v", item.MaHang, err)
 				continue
 			}
 			// Recalc metrics immediately after each update
-			if err := pg.RecalcMetricsForSKU(ctx, item.MaHang); err != nil {
+			if err := pg.RecalcMetricsForSKU(ctx, item.MaHang, req.WarehouseID); err != nil {
 				log.Printf("recalc error for %s: %v", item.MaHang, err)
 			}
 		}
@@ -78,15 +78,17 @@ func main() {
 	// Process recalc-all queue
 	go processQueue(ctx, rq, pg, queue.QueueRecalc, func(job queue.Job) error {
 		log.Println("Starting recalc-all metrics...")
-		skus, err := pg.GetAllSKUs(ctx)
+		skuWarehouses, err := pg.GetAllSKUsAllWarehouses(ctx)
 		if err != nil {
 			return err
 		}
-		log.Printf("Recalculating metrics for %d SKUs...", len(skus))
-		if err := pg.RecalcMetricsForSKUs(ctx, skus); err != nil {
-			return err
+		log.Printf("Recalculating metrics for %d SKU/warehouse pairs...", len(skuWarehouses))
+		for _, sw := range skuWarehouses {
+			if err := pg.RecalcMetricsForSKU(ctx, sw.MaHang, sw.WarehouseID); err != nil {
+				log.Printf("recalc error for %s (warehouse %d): %v", sw.MaHang, sw.WarehouseID, err)
+			}
 		}
-		log.Printf("Recalc-all completed for %d SKUs", len(skus))
+		log.Printf("Recalc-all completed for %d SKU/warehouse pairs", len(skuWarehouses))
 		return nil
 	})
 

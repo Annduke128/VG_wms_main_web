@@ -53,6 +53,7 @@ func (s *OrderService) CreateInbound(ctx context.Context, req domain.CreateInbou
 	item := &domain.InboundItem{
 		MaHang:       req.MaHang,
 		TenSanPham:   req.TenSanPham,
+		WarehouseID:  req.WarehouseID,
 		DonViTinh:    req.DonViTinh,
 		QuyCach:      req.QuyCach,
 		SoLuong:      req.SoLuong,
@@ -69,22 +70,23 @@ func (s *OrderService) CreateInbound(ctx context.Context, req domain.CreateInbou
 
 	// 2. Upsert lot
 	lot := &domain.InventoryLot{
-		MaHang:     req.MaHang,
-		BatchCode:  req.BatchCode,
-		ReceivedAt: receivedAt,
-		QtyIn:      req.SoLuong,
+		MaHang:      req.MaHang,
+		BatchCode:   req.BatchCode,
+		WarehouseID: req.WarehouseID,
+		ReceivedAt:  receivedAt,
+		QtyIn:       req.SoLuong,
 	}
 	if err := s.Repo.UpsertInventoryLot(ctx, tx, lot); err != nil {
 		return nil, fmt.Errorf("upsert lot: %w", err)
 	}
 
 	// 3. Update inventory_main
-	if err := s.Repo.UpdateInventoryMainInbound(ctx, tx, req.MaHang, req.SoLuong); err != nil {
+	if err := s.Repo.UpdateInventoryMainInbound(ctx, tx, req.MaHang, req.SoLuong, req.WarehouseID); err != nil {
 		return nil, fmt.Errorf("update inventory: %w", err)
 	}
 
 	// 4. Movement record
-	if err := s.Repo.InsertInventoryMovement(ctx, tx, req.MaHang, req.SoLuong, "IN"); err != nil {
+	if err := s.Repo.InsertInventoryMovement(ctx, tx, req.MaHang, req.SoLuong, "IN", req.WarehouseID); err != nil {
 		return nil, fmt.Errorf("insert movement: %w", err)
 	}
 
@@ -93,7 +95,7 @@ func (s *OrderService) CreateInbound(ctx context.Context, req domain.CreateInbou
 	}
 
 	// Recalculate metrics after inbound
-	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang)
+	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang, req.WarehouseID)
 
 	return &domain.InboundResult{
 		InboundItem: *item,
@@ -122,7 +124,7 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 	defer tx.Rollback(ctx)
 
 	// 1. Get available lots FIFO
-	lots, err := s.Repo.GetAvailableLotsFIFO(ctx, tx, req.MaHang)
+	lots, err := s.Repo.GetAvailableLotsFIFO(ctx, tx, req.MaHang, req.WarehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("get FIFO lots: %w", err)
 	}
@@ -158,16 +160,17 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 
 		// Insert outbound_items row for this allocation
 		outItem := &domain.OutboundItem{
-			MaHang:     req.MaHang,
-			TenSanPham: req.TenSanPham,
-			DonViTinh:  req.DonViTinh,
-			QuyCach:    req.QuyCach,
-			SoLuong:    allocQty,
-			BatchCode:  lot.BatchCode,
-			DoanhSo:    req.DoanhSo * (allocQty / req.SoLuong), // proportional
-			ChietKhau:  req.ChietKhau * (allocQty / req.SoLuong),
-			DoanhThu:   req.DoanhThu * (allocQty / req.SoLuong),
-			Von:        req.Von * (allocQty / req.SoLuong),
+			MaHang:      req.MaHang,
+			TenSanPham:  req.TenSanPham,
+			WarehouseID: req.WarehouseID,
+			DonViTinh:   req.DonViTinh,
+			QuyCach:     req.QuyCach,
+			SoLuong:     allocQty,
+			BatchCode:   lot.BatchCode,
+			DoanhSo:     req.DoanhSo * (allocQty / req.SoLuong), // proportional
+			ChietKhau:   req.ChietKhau * (allocQty / req.SoLuong),
+			DoanhThu:    req.DoanhThu * (allocQty / req.SoLuong),
+			Von:         req.Von * (allocQty / req.SoLuong),
 		}
 		if err := s.Repo.InsertOutboundItem(ctx, tx, outItem); err != nil {
 			return nil, fmt.Errorf("insert outbound: %w", err)
@@ -185,12 +188,12 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 
 	// 3. Update inventory_main
 	totalAllocated := req.SoLuong - remaining
-	if err := s.Repo.UpdateInventoryMainOutbound(ctx, tx, req.MaHang, totalAllocated); err != nil {
+	if err := s.Repo.UpdateInventoryMainOutbound(ctx, tx, req.MaHang, totalAllocated, req.WarehouseID); err != nil {
 		return nil, fmt.Errorf("update inventory: %w", err)
 	}
 
 	// 4. Movement record
-	if err := s.Repo.InsertInventoryMovement(ctx, tx, req.MaHang, totalAllocated, "OUT"); err != nil {
+	if err := s.Repo.InsertInventoryMovement(ctx, tx, req.MaHang, totalAllocated, "OUT", req.WarehouseID); err != nil {
 		return nil, fmt.Errorf("insert movement: %w", err)
 	}
 
@@ -199,7 +202,7 @@ func (s *OrderService) CreateOutbound(ctx context.Context, req domain.CreateOutb
 	}
 
 	// Recalculate metrics after outbound
-	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang)
+	_ = s.Repo.RecalcMetricsForSKU(ctx, req.MaHang, req.WarehouseID)
 
 	return &domain.OutboundResult{
 		OutboundItems:  outboundItems,
@@ -217,6 +220,6 @@ func (s *OrderService) ListOrders(ctx context.Context, f domain.OrderFilter) ([]
 }
 
 // GetLots returns lot details for a product
-func (s *OrderService) GetLots(ctx context.Context, maHang string) ([]domain.InventoryLot, error) {
-	return s.Repo.GetLotsByMaHang(ctx, maHang)
+func (s *OrderService) GetLots(ctx context.Context, maHang string, warehouseID int64) ([]domain.InventoryLot, error) {
+	return s.Repo.GetLotsByMaHang(ctx, maHang, warehouseID)
 }

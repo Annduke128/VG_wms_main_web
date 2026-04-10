@@ -17,6 +17,7 @@ var AllowedColumns = map[string]bool{
 	"tien_ton": true, "tien_nhap": true, "tien_xuat": true,
 	"so_ngay_ton": true, "luong_ban_binh_quan_ngay": true,
 	"so_ngay_ton_ban": true,
+	"warehouse_id":    true,
 }
 
 // AllowedUpdateColumns is the whitelist for inventory_main UPDATE operations.
@@ -37,6 +38,13 @@ func BuildQuery(table string, req domain.GridRequest) (string, string, []interfa
 	var conditions []string
 	var args []interface{}
 	argIdx := 1
+
+	// Mandatory warehouse_id filter
+	if req.WarehouseID > 0 {
+		conditions = append(conditions, fmt.Sprintf("warehouse_id = $%d", argIdx))
+		args = append(args, req.WarehouseID)
+		argIdx++
+	}
 
 	// Build WHERE from filterModel
 	for col, filter := range req.FilterModel {

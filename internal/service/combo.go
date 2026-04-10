@@ -50,13 +50,13 @@ func (s *ComboService) DeleteComboMaster(ctx context.Context, maCombo string) er
 
 // --- Combo Inventory ---
 
-func (s *ComboService) GetComboInventory(ctx context.Context) ([]domain.ComboInventory, error) {
-	return s.Repo.GetComboInventory(ctx)
+func (s *ComboService) GetComboInventory(ctx context.Context, warehouseID int64) ([]domain.ComboInventory, error) {
+	return s.Repo.GetComboInventory(ctx, warehouseID)
 }
 
 // --- Combo Transactions ---
 
-func (s *ComboService) ListComboTransactions(ctx context.Context, maCombo string, page, limit int) ([]domain.ComboTransaction, int64, error) {
+func (s *ComboService) ListComboTransactions(ctx context.Context, maCombo string, page, limit int, warehouseID int64) ([]domain.ComboTransaction, int64, error) {
 	if limit <= 0 {
 		limit = 50
 	}
@@ -64,7 +64,7 @@ func (s *ComboService) ListComboTransactions(ctx context.Context, maCombo string
 	if offset < 0 {
 		offset = 0
 	}
-	return s.Repo.ListComboTransactions(ctx, maCombo, limit, offset)
+	return s.Repo.ListComboTransactions(ctx, maCombo, limit, offset, warehouseID)
 }
 
 // CreateCombo: tạo combo từ NVL
@@ -96,7 +96,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 	}
 
 	// 2. Insert transaction first to get ID
-	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "CREATE", req.SoLuong, req.Note)
+	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "CREATE", req.SoLuong, req.Note, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
@@ -107,7 +107,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 		needed := bom.SoLuong * req.SoLuong
 
 		// Get FIFO lots
-		lots, err := s.Repo.GetAvailableLotsFIFO(ctx, tx, bom.MaHang)
+		lots, err := s.Repo.GetAvailableLotsFIFO(ctx, tx, bom.MaHang, req.WarehouseID)
 		if err != nil {
 			return nil, fmt.Errorf("get FIFO lots for %s: %w", bom.MaHang, err)
 		}
@@ -137,7 +137,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 
 			// Record component movement with lot reference
 			lotID := lot.ID
-			if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "SEMI", bom.MaHang, allocQty, &lotID); err != nil {
+			if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "SEMI", bom.MaHang, allocQty, &lotID, req.WarehouseID); err != nil {
 				return nil, err
 			}
 
@@ -148,7 +148,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 		_, err = tx.Exec(ctx, `
 			UPDATE inventory_main
 			SET so_ton = so_ton - $1, so_xuat = so_xuat + $1
-			WHERE ma_hang = $2`, needed, bom.MaHang)
+			WHERE ma_hang = $2 AND warehouse_id = $3`, needed, bom.MaHang, req.WarehouseID)
 		if err != nil {
 			return nil, fmt.Errorf("update inventory_main for %s: %w", bom.MaHang, err)
 		}
@@ -161,7 +161,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 		needed := bom.SoLuong * req.SoLuong
 
 		// Check stock
-		stock, err := s.Repo.GetAccessoryStockForUpdate(ctx, tx, bom.MaPhuKien)
+		stock, err := s.Repo.GetAccessoryStockForUpdate(ctx, tx, bom.MaPhuKien, req.WarehouseID)
 		if err != nil {
 			return nil, fmt.Errorf("get accessory stock %s: %w", bom.MaPhuKien, err)
 		}
@@ -169,23 +169,23 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 			return nil, fmt.Errorf("thiếu phụ kiện %s: cần %.2f, còn %.2f", bom.MaPhuKien, needed, stock)
 		}
 
-		if err := s.Repo.UpdateAccessoryStock(ctx, tx, bom.MaPhuKien, -needed); err != nil {
+		if err := s.Repo.UpdateAccessoryStock(ctx, tx, bom.MaPhuKien, req.WarehouseID, -needed); err != nil {
 			return nil, err
 		}
 
 		// Record accessory movement
-		if err := s.Repo.InsertAccessoryMovement(ctx, tx, bom.MaPhuKien, "OUT", needed, fmt.Sprintf("Tạo combo %s x%.0f", req.MaCombo, req.SoLuong)); err != nil {
+		if err := s.Repo.InsertAccessoryMovement(ctx, tx, bom.MaPhuKien, "OUT", needed, fmt.Sprintf("Tạo combo %s x%.0f", req.MaCombo, req.SoLuong), req.WarehouseID); err != nil {
 			return nil, err
 		}
 
 		// Record component movement
-		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "ACCESSORY", bom.MaPhuKien, needed, nil); err != nil {
+		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "ACCESSORY", bom.MaPhuKien, needed, nil, req.WarehouseID); err != nil {
 			return nil, err
 		}
 	}
 
 	// 5. Update combo inventory: +so_ton, +so_nhap
-	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.SoLuong, req.SoLuong, 0, 0); err != nil {
+	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.WarehouseID, req.SoLuong, req.SoLuong, 0, 0); err != nil {
 		return nil, err
 	}
 
@@ -195,7 +195,7 @@ func (s *ComboService) CreateCombo(ctx context.Context, req domain.CreateComboRe
 
 	// 6. Recalc metrics (outside tx)
 	for _, sku := range affectedSKUs {
-		_ = s.Repo.RecalcMetricsForSKU(ctx, sku)
+		_ = s.Repo.RecalcMetricsForSKU(ctx, sku, req.WarehouseID)
 	}
 
 	txn := &domain.ComboTransaction{
@@ -227,7 +227,7 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 	defer tx.Rollback(ctx)
 
 	// Check combo stock
-	ci, err := s.Repo.GetComboInventoryForUpdate(ctx, tx, req.MaCombo)
+	ci, err := s.Repo.GetComboInventoryForUpdate(ctx, tx, req.MaCombo, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +242,7 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 	}
 
 	// Insert transaction
-	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "CANCEL", req.SoLuong, req.Note)
+	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "CANCEL", req.SoLuong, req.Note, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
@@ -256,7 +256,7 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 		_, err = tx.Exec(ctx, `
 			UPDATE inventory_main
 			SET so_ton = so_ton + $1, so_xuat = so_xuat - $1
-			WHERE ma_hang = $2`, restoreQty, bom.MaHang)
+			WHERE ma_hang = $2 AND warehouse_id = $3`, restoreQty, bom.MaHang, req.WarehouseID)
 		if err != nil {
 			return nil, fmt.Errorf("restore inventory_main for %s: %w", bom.MaHang, err)
 		}
@@ -268,15 +268,15 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 				qty_remaining = qty_remaining + $2
 			WHERE id = (
 				SELECT id FROM inventory_lots
-				WHERE ma_hang = $1
+				WHERE ma_hang = $1 AND warehouse_id = $3
 				ORDER BY received_at DESC, id DESC
 				LIMIT 1
-			)`, bom.MaHang, restoreQty)
+			)`, bom.MaHang, restoreQty, req.WarehouseID)
 		if err != nil {
 			return nil, fmt.Errorf("restore lot for %s: %w", bom.MaHang, err)
 		}
 
-		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "SEMI", bom.MaHang, restoreQty, nil); err != nil {
+		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "SEMI", bom.MaHang, restoreQty, nil, req.WarehouseID); err != nil {
 			return nil, err
 		}
 
@@ -287,21 +287,21 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 	for _, bom := range bomAcc {
 		restoreQty := bom.SoLuong * req.SoLuong
 
-		if err := s.Repo.UpdateAccessoryStock(ctx, tx, bom.MaPhuKien, restoreQty); err != nil {
+		if err := s.Repo.UpdateAccessoryStock(ctx, tx, bom.MaPhuKien, req.WarehouseID, restoreQty); err != nil {
 			return nil, err
 		}
 
-		if err := s.Repo.InsertAccessoryMovement(ctx, tx, bom.MaPhuKien, "RETURN", restoreQty, fmt.Sprintf("Hủy combo %s x%.0f", req.MaCombo, req.SoLuong)); err != nil {
+		if err := s.Repo.InsertAccessoryMovement(ctx, tx, bom.MaPhuKien, "RETURN", restoreQty, fmt.Sprintf("Hủy combo %s x%.0f", req.MaCombo, req.SoLuong), req.WarehouseID); err != nil {
 			return nil, err
 		}
 
-		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "ACCESSORY", bom.MaPhuKien, restoreQty, nil); err != nil {
+		if err := s.Repo.InsertComboComponentMovement(ctx, tx, txnID, "ACCESSORY", bom.MaPhuKien, restoreQty, nil, req.WarehouseID); err != nil {
 			return nil, err
 		}
 	}
 
 	// Trừ combo inventory
-	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, -req.SoLuong, 0, 0, 0); err != nil {
+	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.WarehouseID, -req.SoLuong, 0, 0, 0); err != nil {
 		return nil, err
 	}
 
@@ -310,7 +310,7 @@ func (s *ComboService) CancelCombo(ctx context.Context, req domain.CancelComboRe
 	}
 
 	for _, sku := range affectedSKUs {
-		_ = s.Repo.RecalcMetricsForSKU(ctx, sku)
+		_ = s.Repo.RecalcMetricsForSKU(ctx, sku, req.WarehouseID)
 	}
 
 	return &domain.ComboTransaction{
@@ -335,7 +335,7 @@ func (s *ComboService) ComboOut(ctx context.Context, req domain.ComboOutRequest)
 	}
 	defer tx.Rollback(ctx)
 
-	ci, err := s.Repo.GetComboInventoryForUpdate(ctx, tx, req.MaCombo)
+	ci, err := s.Repo.GetComboInventoryForUpdate(ctx, tx, req.MaCombo, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
@@ -343,13 +343,13 @@ func (s *ComboService) ComboOut(ctx context.Context, req domain.ComboOutRequest)
 		return nil, fmt.Errorf("tồn combo không đủ: còn %.2f, cần xuất %.2f", ci.SoTon, req.SoLuong)
 	}
 
-	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "OUT", req.SoLuong, req.Note)
+	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "OUT", req.SoLuong, req.Note, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
 
 	// -so_ton, +so_xuat
-	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, -req.SoLuong, 0, req.SoLuong, 0); err != nil {
+	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.WarehouseID, -req.SoLuong, 0, req.SoLuong, 0); err != nil {
 		return nil, err
 	}
 
@@ -378,13 +378,13 @@ func (s *ComboService) ComboReturn(ctx context.Context, req domain.ComboReturnRe
 	}
 	defer tx.Rollback(ctx)
 
-	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "RETURN", req.SoLuong, req.Note)
+	txnID, err := s.Repo.InsertComboTransaction(ctx, tx, req.MaCombo, "RETURN", req.SoLuong, req.Note, req.WarehouseID)
 	if err != nil {
 		return nil, err
 	}
 
 	// +so_ton, +so_tra
-	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.SoLuong, 0, 0, req.SoLuong); err != nil {
+	if err := s.Repo.UpdateComboInventory(ctx, tx, req.MaCombo, req.WarehouseID, req.SoLuong, 0, 0, req.SoLuong); err != nil {
 		return nil, err
 	}
 
@@ -430,8 +430,8 @@ func (s *ComboService) CreateAccessory(ctx context.Context, req domain.CreateAcc
 	return tx.Commit(ctx)
 }
 
-func (s *ComboService) GetAccessoryInventory(ctx context.Context) ([]domain.AccessoryInventory, error) {
-	return s.Repo.GetAccessoryInventory(ctx)
+func (s *ComboService) GetAccessoryInventory(ctx context.Context, warehouseID int64) ([]domain.AccessoryInventory, error) {
+	return s.Repo.GetAccessoryInventory(ctx, warehouseID)
 }
 
 // AccessoryStockIn: nhập phụ kiện
@@ -446,11 +446,11 @@ func (s *ComboService) AccessoryStockIn(ctx context.Context, req domain.Accessor
 	}
 	defer tx.Rollback(ctx)
 
-	if err := s.Repo.UpdateAccessoryStock(ctx, tx, req.MaPhuKien, req.SoLuong); err != nil {
+	if err := s.Repo.UpdateAccessoryStock(ctx, tx, req.MaPhuKien, req.WarehouseID, req.SoLuong); err != nil {
 		return err
 	}
 
-	if err := s.Repo.InsertAccessoryMovement(ctx, tx, req.MaPhuKien, "IN", req.SoLuong, req.Note); err != nil {
+	if err := s.Repo.InsertAccessoryMovement(ctx, tx, req.MaPhuKien, "IN", req.SoLuong, req.Note, req.WarehouseID); err != nil {
 		return err
 	}
 

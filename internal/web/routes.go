@@ -89,6 +89,15 @@ func SetupRoutes(h *Handlers) *gin.Engine {
 	api.GET("/accessories/inventory", h.GetAccessoryInventory)
 	api.POST("/accessories/stock-in", h.AccessoryStockIn)
 
+	// ─── Warehouses ──────────────────────────────────────────────────────
+	wh := api.Group("/warehouses")
+	{
+		wh.GET("", h.ListWarehouses)
+		wh.GET("/:id", h.GetWarehouse)
+		wh.POST("", h.CreateWarehouse)
+		wh.PATCH("/:id", h.UpdateWarehouse)
+	}
+
 	// Serve static frontend (production)
 	staticDir := os.Getenv("STATIC_DIR")
 	if staticDir == "" {

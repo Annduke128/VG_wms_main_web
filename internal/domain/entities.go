@@ -31,6 +31,7 @@ type InventoryMain struct {
 	SoNgayTon            float64 `json:"so_ngay_ton" db:"so_ngay_ton"`
 	LuongBanBinhQuanNgay float64 `json:"luong_ban_binh_quan_ngay" db:"luong_ban_binh_quan_ngay"`
 	SoNgayTonBan         float64 `json:"so_ngay_ton_ban" db:"so_ngay_ton_ban"`
+	WarehouseID          int64   `json:"warehouse_id" db:"warehouse_id"`
 	// Joined from products table via inventory_grid view
 	DonGia     float64 `json:"don_gia" db:"don_gia"`
 	MaBu       string  `json:"ma_bu" db:"ma_bu"`
@@ -41,6 +42,7 @@ type InboundItem struct {
 	ID            int64     `json:"id" db:"id"`
 	MaHang        string    `json:"ma_hang" db:"ma_hang"`
 	TenSanPham    string    `json:"ten_san_pham" db:"ten_san_pham"`
+	WarehouseID   int64     `json:"warehouse_id" db:"warehouse_id"`
 	DonViTinh     string    `json:"don_vi_tinh" db:"don_vi_tinh"`
 	QuyCach       string    `json:"quy_cach" db:"quy_cach"`
 	SoLuong       float64   `json:"so_luong" db:"so_luong"`
@@ -59,6 +61,7 @@ type OutboundItem struct {
 	ID            int64     `json:"id" db:"id"`
 	MaHang        string    `json:"ma_hang" db:"ma_hang"`
 	TenSanPham    string    `json:"ten_san_pham" db:"ten_san_pham"`
+	WarehouseID   int64     `json:"warehouse_id" db:"warehouse_id"`
 	DonViTinh     string    `json:"don_vi_tinh" db:"don_vi_tinh"`
 	QuyCach       string    `json:"quy_cach" db:"quy_cach"`
 	SoLuong       float64   `json:"so_luong" db:"so_luong"`
@@ -78,6 +81,7 @@ type InventoryLot struct {
 	ID           int64     `json:"id" db:"id"`
 	MaHang       string    `json:"ma_hang" db:"ma_hang"`
 	BatchCode    string    `json:"batch_code" db:"batch_code"`
+	WarehouseID  int64     `json:"warehouse_id" db:"warehouse_id"`
 	ReceivedAt   time.Time `json:"received_at" db:"received_at"`
 	QtyIn        float64   `json:"qty_in" db:"qty_in"`
 	QtyOut       float64   `json:"qty_out" db:"qty_out"`
@@ -89,6 +93,7 @@ type InventoryLot struct {
 type InventoryThreshold struct {
 	ID            int64      `json:"id" db:"id"`
 	MaHang        string     `json:"ma_hang" db:"ma_hang"`
+	WarehouseID   int64      `json:"warehouse_id" db:"warehouse_id"`
 	MinQty        float64    `json:"min_qty" db:"min_qty"`
 	OptimalQty    float64    `json:"optimal_qty" db:"optimal_qty"`
 	MaxAgeDays    int        `json:"max_age_days" db:"max_age_days"`
@@ -102,6 +107,7 @@ type InventoryThreshold struct {
 type InventoryMovement struct {
 	MovementID   int64     `json:"movement_id" db:"movement_id"`
 	MaHang       string    `json:"ma_hang" db:"ma_hang"`
+	WarehouseID  int64     `json:"warehouse_id" db:"warehouse_id"`
 	Qty          float64   `json:"qty" db:"qty"`
 	MovementType string    `json:"movement_type" db:"movement_type"` // IN or OUT
 	CreatedAt    time.Time `json:"created_at" db:"created_at"`
@@ -116,6 +122,29 @@ type AsyncJob struct {
 	Error     string    `json:"error" db:"error"`
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
 	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// Warehouse represents a physical warehouse location
+type Warehouse struct {
+	ID        int64     `json:"id" db:"id"`
+	Code      string    `json:"code" db:"code"`
+	Name      string    `json:"name" db:"name"`
+	Address   string    `json:"address" db:"address"`
+	IsActive  bool      `json:"is_active" db:"is_active"`
+	CreatedAt time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt time.Time `json:"updated_at" db:"updated_at"`
+}
+
+// CreateWarehouseRequest is the request body for creating a warehouse
+type CreateWarehouseRequest struct {
+	Name    string `json:"name" binding:"required"`
+	Address string `json:"address"`
+}
+
+// UpdateWarehouseRequest is the request body for updating a warehouse
+type UpdateWarehouseRequest struct {
+	Name    *string `json:"name"`
+	Address *string `json:"address"`
 }
 
 type ImportBatch struct {

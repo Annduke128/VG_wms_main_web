@@ -95,9 +95,9 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 
 		// Recalc ALL SKUs since don_gia may have changed
 		if err == nil {
-			allSKUs, _ := s.Repo.GetAllSKUs(ctx)
-			if len(allSKUs) > 0 {
-				_ = s.Repo.RecalcMetricsForSKUs(ctx, allSKUs)
+			all, _ := s.Repo.GetAllSKUsAllWarehouses(ctx)
+			for _, sw := range all {
+				_ = s.Repo.RecalcMetricsForSKU(ctx, sw.MaHang, sw.WarehouseID)
 			}
 		}
 
@@ -107,7 +107,7 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 			return s.failBatch(ctx, payload.BatchID, parseErr)
 		}
 		parseErrors = errs
-		success, err = s.Repo.ImportInventoryFull(ctx, rows)
+		success, err = s.Repo.ImportInventoryFull(ctx, rows, 1)
 
 		// Recalculate metrics for affected SKUs
 		if err == nil && len(rows) > 0 {
@@ -119,7 +119,7 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 					maHangs = append(maHangs, row.Product.MaHang)
 				}
 			}
-			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
+			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs, 1)
 		}
 
 	case "inbound":
@@ -127,20 +127,19 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		if parseErr != nil {
 			return s.failBatch(ctx, payload.BatchID, parseErr)
 		}
+		for i := range items {
+			if items[i].WarehouseID <= 0 {
+				items[i].WarehouseID = 1
+			}
+		}
 		parseErrors = errs
 		success, err = s.Repo.InsertInboundItems(ctx, items)
 
 		// Recalc metrics for imported inbound SKUs
 		if err == nil && len(items) > 0 {
-			seen := make(map[string]bool)
-			var maHangs []string
 			for _, item := range items {
-				if !seen[item.MaHang] {
-					seen[item.MaHang] = true
-					maHangs = append(maHangs, item.MaHang)
-				}
+				_ = s.Repo.RecalcMetricsForSKU(ctx, item.MaHang, item.WarehouseID)
 			}
-			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
 		}
 
 	case "outbound":
@@ -148,20 +147,19 @@ func (s *ImportService) ProcessImport(ctx context.Context, payload ImportPayload
 		if parseErr != nil {
 			return s.failBatch(ctx, payload.BatchID, parseErr)
 		}
+		for i := range items {
+			if items[i].WarehouseID <= 0 {
+				items[i].WarehouseID = 1
+			}
+		}
 		parseErrors = errs
 		success, err = s.Repo.InsertOutboundItems(ctx, items)
 
 		// Recalc metrics for imported outbound SKUs
 		if err == nil && len(items) > 0 {
-			seen := make(map[string]bool)
-			var maHangs []string
 			for _, item := range items {
-				if !seen[item.MaHang] {
-					seen[item.MaHang] = true
-					maHangs = append(maHangs, item.MaHang)
-				}
+				_ = s.Repo.RecalcMetricsForSKU(ctx, item.MaHang, item.WarehouseID)
 			}
-			_ = s.Repo.RecalcMetricsForSKUs(ctx, maHangs)
 		}
 
 	default:

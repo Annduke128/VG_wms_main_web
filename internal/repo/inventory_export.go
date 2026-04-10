@@ -14,17 +14,18 @@ import (
 // QueryExportRows returns inventory rows for export.
 // If maHangs is non-empty, exports those specific rows.
 // If maHangs is empty, exports all rows matching filterModel (max 10000).
-func (r *PostgresRepo) QueryExportRows(ctx context.Context, maHangs []string, filterModel map[string]domain.FilterItem) ([]domain.InventoryMain, error) {
+func (r *PostgresRepo) QueryExportRows(ctx context.Context, maHangs []string, filterModel map[string]domain.FilterItem, warehouseID int64) ([]domain.InventoryMain, error) {
 	var query string
 	var args []interface{}
 
 	if len(maHangs) > 0 {
 		placeholders := make([]string, len(maHangs))
-		args = make([]interface{}, len(maHangs))
+		args = make([]interface{}, len(maHangs)+1)
 		for i, mh := range maHangs {
 			placeholders[i] = fmt.Sprintf("$%d", i+1)
 			args[i] = mh
 		}
+		args[len(maHangs)] = warehouseID
 		query = fmt.Sprintf(`
 			SELECT ma_hang, ten_san_pham, so_ton, so_nhap, so_xuat,
 			       tien_ton, tien_nhap, tien_xuat, so_ngay_ton,
@@ -32,12 +33,13 @@ func (r *PostgresRepo) QueryExportRows(ctx context.Context, maHangs []string, fi
 			       COALESCE(so_ngay_ton_ban, 0) AS so_ngay_ton_ban,
 			       don_gia, ma_bu, ma_nhom_hang
 			FROM inventory_grid
-			WHERE ma_hang IN (%s)
-			ORDER BY ma_hang`, strings.Join(placeholders, ","))
+			WHERE ma_hang IN (%s) AND warehouse_id = $%d
+			ORDER BY ma_hang`, strings.Join(placeholders, ","), len(maHangs)+1)
 	} else {
 		req := domain.GridRequest{
 			StartRow:    0,
 			EndRow:      10000,
+			WarehouseID: warehouseID,
 			FilterModel: filterModel,
 		}
 		rawDataQuery, _, rawArgs := grid.BuildQuery("inventory_grid", req)

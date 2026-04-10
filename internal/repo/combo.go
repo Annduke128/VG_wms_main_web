@@ -94,10 +94,11 @@ func (r *PostgresRepo) SaveComboMaster(ctx context.Context, tx pgx.Tx, req domai
 		return fmt.Errorf("upsert combo master: %w", err)
 	}
 
-	// Ensure combo_inventory row exists
+	// Ensure combo_inventory rows exist for all active warehouses
 	_, err = tx.Exec(ctx, `
-		INSERT INTO combo_inventory (ma_combo) VALUES ($1)
-		ON CONFLICT (ma_combo) DO NOTHING`, req.MaCombo)
+		INSERT INTO combo_inventory (ma_combo, warehouse_id, so_ton, so_nhap, so_xuat, so_tra)
+		SELECT $1, id, 0, 0, 0, 0 FROM warehouses WHERE is_active = TRUE
+		ON CONFLICT (ma_combo, warehouse_id) DO NOTHING`, req.MaCombo)
 	if err != nil {
 		return fmt.Errorf("ensure combo inventory: %w", err)
 	}
@@ -148,14 +149,14 @@ func (r *PostgresRepo) DeleteComboMaster(ctx context.Context, maCombo string) er
 // --- Combo Inventory ---
 
 // GetComboInventory returns all combo inventory with names
-func (r *PostgresRepo) GetComboInventory(ctx context.Context) ([]domain.ComboInventory, error) {
+func (r *PostgresRepo) GetComboInventory(ctx context.Context, warehouseID int64) ([]domain.ComboInventory, error) {
 	rows, err := r.Pool.Query(ctx, `
-		SELECT ci.ma_combo, ci.so_ton, ci.so_nhap, ci.so_xuat, ci.so_tra, ci.updated_at,
+		SELECT ci.ma_combo, ci.warehouse_id, ci.so_ton, ci.so_nhap, ci.so_xuat, ci.so_tra, ci.updated_at,
 		       cm.ten_combo
 		FROM combo_inventory ci
 		JOIN combo_master cm ON cm.ma_combo = ci.ma_combo
-		WHERE cm.active = TRUE
-		ORDER BY cm.ten_combo`)
+		WHERE cm.active = TRUE AND ci.warehouse_id = $1
+		ORDER BY cm.ten_combo`, warehouseID)
 	if err != nil {
 		return nil, fmt.Errorf("list combo inventory: %w", err)
 	}
@@ -165,16 +166,16 @@ func (r *PostgresRepo) GetComboInventory(ctx context.Context) ([]domain.ComboInv
 }
 
 // UpdateComboInventory atomically adjusts combo inventory
-func (r *PostgresRepo) UpdateComboInventory(ctx context.Context, tx pgx.Tx, maCombo string, soTonDelta, soNhapDelta, soXuatDelta, soTraDelta float64) error {
+func (r *PostgresRepo) UpdateComboInventory(ctx context.Context, tx pgx.Tx, maCombo string, warehouseID int64, soTonDelta, soNhapDelta, soXuatDelta, soTraDelta float64) error {
 	_, err := tx.Exec(ctx, `
 		UPDATE combo_inventory SET
-			so_ton = so_ton + $2,
-			so_nhap = so_nhap + $3,
-			so_xuat = so_xuat + $4,
-			so_tra = so_tra + $5,
+			so_ton = so_ton + $3,
+			so_nhap = so_nhap + $4,
+			so_xuat = so_xuat + $5,
+			so_tra = so_tra + $6,
 			updated_at = NOW()
-		WHERE ma_combo = $1`,
-		maCombo, soTonDelta, soNhapDelta, soXuatDelta, soTraDelta)
+		WHERE ma_combo = $1 AND warehouse_id = $2`,
+		maCombo, warehouseID, soTonDelta, soNhapDelta, soXuatDelta, soTraDelta)
 	if err != nil {
 		return fmt.Errorf("update combo inventory: %w", err)
 	}
@@ -182,13 +183,13 @@ func (r *PostgresRepo) UpdateComboInventory(ctx context.Context, tx pgx.Tx, maCo
 }
 
 // GetComboInventoryForUpdate gets current combo_inventory with FOR UPDATE lock
-func (r *PostgresRepo) GetComboInventoryForUpdate(ctx context.Context, tx pgx.Tx, maCombo string) (*domain.ComboInventory, error) {
+func (r *PostgresRepo) GetComboInventoryForUpdate(ctx context.Context, tx pgx.Tx, maCombo string, warehouseID int64) (*domain.ComboInventory, error) {
 	var ci domain.ComboInventory
 	err := tx.QueryRow(ctx, `
-		SELECT ma_combo, so_ton, so_nhap, so_xuat, so_tra, updated_at
+		SELECT ma_combo, warehouse_id, so_ton, so_nhap, so_xuat, so_tra, updated_at
 		FROM combo_inventory
-		WHERE ma_combo = $1
-		FOR UPDATE`, maCombo).Scan(&ci.MaCombo, &ci.SoTon, &ci.SoNhap, &ci.SoXuat, &ci.SoTra, &ci.UpdatedAt)
+		WHERE ma_combo = $1 AND warehouse_id = $2
+		FOR UPDATE`, maCombo, warehouseID).Scan(&ci.MaCombo, &ci.WarehouseID, &ci.SoTon, &ci.SoNhap, &ci.SoXuat, &ci.SoTra, &ci.UpdatedAt)
 	if err != nil {
 		return nil, fmt.Errorf("get combo inventory for update: %w", err)
 	}
@@ -198,13 +199,13 @@ func (r *PostgresRepo) GetComboInventoryForUpdate(ctx context.Context, tx pgx.Tx
 // --- Combo Transactions ---
 
 // InsertComboTransaction inserts a combo transaction and returns the ID
-func (r *PostgresRepo) InsertComboTransaction(ctx context.Context, tx pgx.Tx, maCombo, txnType string, soLuong float64, note string) (int64, error) {
+func (r *PostgresRepo) InsertComboTransaction(ctx context.Context, tx pgx.Tx, maCombo, txnType string, soLuong float64, note string, warehouseID int64) (int64, error) {
 	var id int64
 	err := tx.QueryRow(ctx, `
-		INSERT INTO combo_transactions (ma_combo, transaction_type, so_luong, note)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO combo_transactions (ma_combo, transaction_type, so_luong, note, warehouse_id)
+		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id`,
-		maCombo, txnType, soLuong, note).Scan(&id)
+		maCombo, txnType, soLuong, note, warehouseID).Scan(&id)
 	if err != nil {
 		return 0, fmt.Errorf("insert combo transaction: %w", err)
 	}
@@ -212,11 +213,11 @@ func (r *PostgresRepo) InsertComboTransaction(ctx context.Context, tx pgx.Tx, ma
 }
 
 // InsertComboComponentMovement records NVL consumption for a combo transaction
-func (r *PostgresRepo) InsertComboComponentMovement(ctx context.Context, tx pgx.Tx, txnID int64, componentType, maComponent string, soLuong float64, lotID *int64) error {
+func (r *PostgresRepo) InsertComboComponentMovement(ctx context.Context, tx pgx.Tx, txnID int64, componentType, maComponent string, soLuong float64, lotID *int64, warehouseID int64) error {
 	_, err := tx.Exec(ctx, `
-		INSERT INTO combo_component_movements (combo_transaction_id, component_type, ma_component, so_luong, lot_id)
-		VALUES ($1, $2, $3, $4, $5)`,
-		txnID, componentType, maComponent, soLuong, lotID)
+		INSERT INTO combo_component_movements (combo_transaction_id, component_type, ma_component, so_luong, lot_id, warehouse_id)
+		VALUES ($1, $2, $3, $4, $5, $6)`,
+		txnID, componentType, maComponent, soLuong, lotID, warehouseID)
 	if err != nil {
 		return fmt.Errorf("insert component movement: %w", err)
 	}
@@ -224,13 +225,14 @@ func (r *PostgresRepo) InsertComboComponentMovement(ctx context.Context, tx pgx.
 }
 
 // ListComboTransactions returns combo transactions with filters
-func (r *PostgresRepo) ListComboTransactions(ctx context.Context, maCombo string, limit, offset int) ([]domain.ComboTransaction, int64, error) {
-	whereClause := ""
+func (r *PostgresRepo) ListComboTransactions(ctx context.Context, maCombo string, limit, offset int, warehouseID int64) ([]domain.ComboTransaction, int64, error) {
+	whereClause := " WHERE ct.warehouse_id = $1"
 	var args []interface{}
-	paramIdx := 1
+	args = append(args, warehouseID)
+	paramIdx := 2
 
 	if maCombo != "" {
-		whereClause = fmt.Sprintf(" WHERE ct.ma_combo = $%d", paramIdx)
+		whereClause += fmt.Sprintf(" AND ct.ma_combo = $%d", paramIdx)
 		args = append(args, maCombo)
 		paramIdx++
 	}
@@ -244,7 +246,7 @@ func (r *PostgresRepo) ListComboTransactions(ctx context.Context, maCombo string
 
 	// Data
 	dataQuery := fmt.Sprintf(`
-		SELECT ct.id, ct.ma_combo, ct.transaction_type, ct.so_luong, ct.note, ct.created_at,
+		SELECT ct.id, ct.ma_combo, ct.warehouse_id, ct.transaction_type, ct.so_luong, ct.note, ct.created_at,
 		       cm.ten_combo
 		FROM combo_transactions ct
 		JOIN combo_master cm ON cm.ma_combo = ct.ma_combo

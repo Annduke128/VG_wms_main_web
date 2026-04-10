@@ -1,61 +1,63 @@
 export interface SortItem {
-	colId: string;
-	sort: "asc" | "desc";
+  colId: string;
+  sort: "asc" | "desc";
 }
 
 export interface FilterItem {
-	filterType: "text" | "number" | "date";
-	type: "contains" | "equals" | "startsWith" | "endsWith" | "inRange" | "set";
-	filter?: string | number;
-	filterTo?: string | number;
-	values?: string[];
+  filterType: "text" | "number" | "date";
+  type: "contains" | "equals" | "startsWith" | "endsWith" | "inRange" | "set";
+  filter?: string | number;
+  filterTo?: string | number;
+  values?: string[];
 }
 
 export interface GridRequest {
-	startRow: number;
-	endRow: number;
-	sortModel: SortItem[];
-	filterModel: Record<string, FilterItem>;
+  startRow: number;
+  endRow: number;
+  warehouse_id: number;
+  sortModel: SortItem[];
+  filterModel: Record<string, FilterItem>;
 }
 
 export interface GridResponse<T = Record<string, unknown>> {
-	rowsData: T[];
-	totalRowCount: number;
+  rowsData: T[];
+  totalRowCount: number;
 }
 
 export interface BulkUpdateItem {
-	ma_hang: string;
-	fields: Record<string, unknown>;
+  ma_hang: string;
+  fields: Record<string, unknown>;
 }
 
 export interface BulkUpdateRequest {
-	updates: BulkUpdateItem[];
+  warehouse_id: number;
+  updates: BulkUpdateItem[];
 }
 
 export interface BulkUpdateResponse {
-	job_id: string;
+  job_id: string;
 }
 
 export interface AsyncJob {
-	job_id: string;
-	job_type: string;
-	status: "pending" | "running" | "completed" | "failed";
-	payload: string;
-	result: string;
-	error: string;
-	created_at: string;
-	updated_at: string;
+  job_id: string;
+  job_type: string;
+  status: "pending" | "running" | "completed" | "failed";
+  payload: string;
+  result: string;
+  error: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface ImportBatch {
-	batch_id: number;
-	file_type: string;
-	file_name: string;
-	total_rows: number;
-	success_rows: number;
-	error_rows: number;
-	status: string;
-	errors: string; // JSON array of error strings
-	created_at: string;
-	completed_at: string | null;
+  batch_id: number;
+  file_type: string;
+  file_name: string;
+  total_rows: number;
+  success_rows: number;
+  error_rows: number;
+  status: string;
+  errors: string; // JSON array of error strings
+  created_at: string;
+  completed_at: string | null;
 }

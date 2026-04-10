@@ -9,11 +9,15 @@ type FilterOptions struct {
 }
 
 // GetInventoryFilterOptions returns distinct BU and nhom hang values for filter dropdowns
-func (r *PostgresRepo) GetInventoryFilterOptions(ctx context.Context) (*FilterOptions, error) {
+func (r *PostgresRepo) GetInventoryFilterOptions(ctx context.Context, warehouseID int64) (*FilterOptions, error) {
 	opts := &FilterOptions{}
 
 	buRows, err := r.Pool.Query(ctx,
-		"SELECT DISTINCT ma_bu FROM products WHERE ma_bu != '' ORDER BY ma_bu")
+		`SELECT DISTINCT p.ma_bu
+		 FROM products p
+		 JOIN inventory_main im ON im.ma_hang = p.ma_hang
+		 WHERE p.ma_bu != '' AND im.warehouse_id = $1
+		 ORDER BY p.ma_bu`, warehouseID)
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +31,11 @@ func (r *PostgresRepo) GetInventoryFilterOptions(ctx context.Context) (*FilterOp
 	}
 
 	nhomRows, err := r.Pool.Query(ctx,
-		"SELECT DISTINCT ma_nhom_hang FROM products WHERE ma_nhom_hang != '' ORDER BY ma_nhom_hang")
+		`SELECT DISTINCT p.ma_nhom_hang
+		 FROM products p
+		 JOIN inventory_main im ON im.ma_hang = p.ma_hang
+		 WHERE p.ma_nhom_hang != '' AND im.warehouse_id = $1
+		 ORDER BY p.ma_nhom_hang`, warehouseID)
 	if err != nil {
 		return nil, err
 	}

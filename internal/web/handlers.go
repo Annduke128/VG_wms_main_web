@@ -15,6 +15,7 @@ import (
 	"wms-v1/internal/domain"
 	"wms-v1/internal/importer"
 	"wms-v1/internal/queue"
+	"wms-v1/internal/repo"
 	"wms-v1/internal/service"
 )
 
@@ -25,10 +26,26 @@ type Handlers struct {
 	Dashboard *service.DashboardService
 	Combo     *service.ComboService
 	Queue     *queue.RedisQueue
+	Repo      *repo.PostgresRepo
 }
 
-func NewHandlers(inv *service.InventoryService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, combo *service.ComboService, q *queue.RedisQueue) *Handlers {
-	return &Handlers{Inventory: inv, Import: imp, Orders: ord, Dashboard: dash, Combo: combo, Queue: q}
+func NewHandlers(inv *service.InventoryService, imp *service.ImportService, ord *service.OrderService, dash *service.DashboardService, combo *service.ComboService, q *queue.RedisQueue, r *repo.PostgresRepo) *Handlers {
+	return &Handlers{Inventory: inv, Import: imp, Orders: ord, Dashboard: dash, Combo: combo, Queue: q, Repo: r}
+}
+
+// getWarehouseID extracts warehouse_id from query params (required).
+func getWarehouseID(c *gin.Context) (int64, bool) {
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return 0, false
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return 0, false
+	}
+	return warehouseID, true
 }
 
 // --- Inventory Grid ---
@@ -37,6 +54,10 @@ func (h *Handlers) InventoryGrid(c *gin.Context) {
 	var req domain.GridRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if req.WarehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
 		return
 	}
 
@@ -55,6 +76,16 @@ func (h *Handlers) UpdateInventoryItem(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "ma_hang is required"})
 		return
 	}
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
 
 	var fields map[string]interface{}
 	if err := c.ShouldBindJSON(&fields); err != nil {
@@ -62,7 +93,7 @@ func (h *Handlers) UpdateInventoryItem(c *gin.Context) {
 		return
 	}
 
-	if err := h.Inventory.UpdateItem(c.Request.Context(), maHang, fields); err != nil {
+	if err := h.Inventory.UpdateItem(c.Request.Context(), maHang, warehouseID, fields); err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
@@ -74,6 +105,10 @@ func (h *Handlers) BulkUpdateInventory(c *gin.Context) {
 	var req domain.BulkUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if req.WarehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
 		return
 	}
 
@@ -144,7 +179,17 @@ func (h *Handlers) ImportFile(fileType string) gin.HandlerFunc {
 // --- Dashboard ---
 
 func (h *Handlers) DashboardSummary(c *gin.Context) {
-	summary, err := h.Dashboard.GetSummary(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	summary, err := h.Dashboard.GetSummary(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -159,8 +204,18 @@ func (h *Handlers) DashboardCharts(c *gin.Context) {
 			weeks = parsed
 		}
 	}
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
 
-	charts, err := h.Dashboard.GetCharts(c.Request.Context(), weeks)
+	charts, err := h.Dashboard.GetCharts(c.Request.Context(), warehouseID, weeks)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -169,7 +224,17 @@ func (h *Handlers) DashboardCharts(c *gin.Context) {
 }
 
 func (h *Handlers) InventoryAlerts(c *gin.Context) {
-	alerts, err := h.Dashboard.GetAlerts(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	alerts, err := h.Dashboard.GetAlerts(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -178,7 +243,17 @@ func (h *Handlers) InventoryAlerts(c *gin.Context) {
 }
 
 func (h *Handlers) ZeroSales(c *gin.Context) {
-	items, err := h.Dashboard.GetZeroSales(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	items, err := h.Dashboard.GetZeroSales(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -187,7 +262,17 @@ func (h *Handlers) ZeroSales(c *gin.Context) {
 }
 
 func (h *Handlers) RestockAlerts(c *gin.Context) {
-	items, err := h.Dashboard.GetRestockAlerts(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	items, err := h.Dashboard.GetRestockAlerts(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -201,8 +286,18 @@ func (h *Handlers) InventoryLots(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "ma_hang query parameter is required"})
 		return
 	}
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
 
-	lots, err := h.Orders.GetLots(c.Request.Context(), maHang)
+	lots, err := h.Orders.GetLots(c.Request.Context(), maHang, warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -215,6 +310,11 @@ func (h *Handlers) InventoryLots(c *gin.Context) {
 func (h *Handlers) ListOrders(c *gin.Context) {
 	var f domain.OrderFilter
 	f.OrderType = c.Query("type") // "in", "out", or "" for all
+	if wid := c.Query("warehouse_id"); wid != "" {
+		if parsed, err := strconv.ParseInt(wid, 10, 64); err == nil && parsed > 0 {
+			f.WarehouseID = parsed
+		}
+	}
 
 	page := 1
 	if p := c.Query("page"); p != "" {
@@ -300,12 +400,15 @@ func (h *Handlers) CreateOrder(c *gin.Context) {
 		c.Request.Body = nil // already consumed, use raw
 		req.MaHang, _ = raw["ma_hang"].(string)
 		req.BatchCode, _ = raw["batch_code"].(string)
+		if wid, ok := raw["warehouse_id"].(float64); ok {
+			req.WarehouseID = int64(wid)
+		}
 		if qty, ok := raw["so_luong"].(float64); ok {
 			req.SoLuong = qty
 		}
 
-		if req.MaHang == "" || req.BatchCode == "" || req.SoLuong <= 0 {
-			c.JSON(400, gin.H{"error": "ma_hang, batch_code, and so_luong > 0 are required"})
+		if req.MaHang == "" || req.BatchCode == "" || req.SoLuong <= 0 || req.WarehouseID <= 0 {
+			c.JSON(400, gin.H{"error": "ma_hang, batch_code, warehouse_id, and so_luong > 0 are required"})
 			return
 		}
 
@@ -319,12 +422,15 @@ func (h *Handlers) CreateOrder(c *gin.Context) {
 	case "out", "outbound":
 		var req domain.CreateOutboundRequest
 		req.MaHang, _ = raw["ma_hang"].(string)
+		if wid, ok := raw["warehouse_id"].(float64); ok {
+			req.WarehouseID = int64(wid)
+		}
 		if qty, ok := raw["so_luong"].(float64); ok {
 			req.SoLuong = qty
 		}
 
-		if req.MaHang == "" || req.SoLuong <= 0 {
-			c.JSON(400, gin.H{"error": "ma_hang and so_luong > 0 are required"})
+		if req.MaHang == "" || req.SoLuong <= 0 || req.WarehouseID <= 0 {
+			c.JSON(400, gin.H{"error": "ma_hang, warehouse_id, and so_luong > 0 are required"})
 			return
 		}
 
@@ -348,8 +454,18 @@ func (h *Handlers) GetThresholds(c *gin.Context) {
 		c.JSON(400, gin.H{"error": "ma_hang query parameter is required"})
 		return
 	}
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
 
-	thresholds, err := h.Dashboard.GetThresholds(c.Request.Context(), maHang)
+	thresholds, err := h.Dashboard.GetThresholds(c.Request.Context(), maHang, warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -462,7 +578,17 @@ func (h *Handlers) ResetAllData(c *gin.Context) {
 // --- Inventory Filter Options ---
 
 func (h *Handlers) InventoryFilterOptions(c *gin.Context) {
-	opts, err := h.Inventory.GetFilterOptions(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	opts, err := h.Inventory.GetFilterOptions(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -477,9 +603,14 @@ func (h *Handlers) ExportInventory(c *gin.Context) {
 		MaHang      []string                     `json:"ma_hang"`
 		Columns     []string                     `json:"columns"`
 		FilterModel map[string]domain.FilterItem `json:"filter_model"`
+		WarehouseID int64                        `json:"warehouse_id"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(400, gin.H{"error": "invalid request body"})
+		return
+	}
+	if req.WarehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
 		return
 	}
 
@@ -496,7 +627,7 @@ func (h *Handlers) ExportInventory(c *gin.Context) {
 	}
 
 	// Query data
-	rows, err := h.Inventory.ExportRows(c.Request.Context(), req.MaHang, req.FilterModel)
+	rows, err := h.Inventory.ExportRows(c.Request.Context(), req.MaHang, req.FilterModel, req.WarehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -618,7 +749,17 @@ func (h *Handlers) ComboReturn(c *gin.Context) {
 // --- Combo Inventory ---
 
 func (h *Handlers) GetComboInventory(c *gin.Context) {
-	items, err := h.Combo.GetComboInventory(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	items, err := h.Combo.GetComboInventory(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -630,6 +771,16 @@ func (h *Handlers) GetComboInventory(c *gin.Context) {
 
 func (h *Handlers) ListComboTransactions(c *gin.Context) {
 	maCombo := c.Query("ma_combo")
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
 	page := 1
 	if p := c.Query("page"); p != "" {
 		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
@@ -643,7 +794,7 @@ func (h *Handlers) ListComboTransactions(c *gin.Context) {
 		}
 	}
 
-	items, total, err := h.Combo.ListComboTransactions(c.Request.Context(), maCombo, page, limit)
+	items, total, err := h.Combo.ListComboTransactions(c.Request.Context(), maCombo, page, limit, warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -676,7 +827,17 @@ func (h *Handlers) CreateAccessory(c *gin.Context) {
 }
 
 func (h *Handlers) GetAccessoryInventory(c *gin.Context) {
-	items, err := h.Combo.GetAccessoryInventory(c.Request.Context())
+	warehouseIDStr := c.Query("warehouse_id")
+	if warehouseIDStr == "" {
+		c.JSON(400, gin.H{"error": "warehouse_id is required"})
+		return
+	}
+	warehouseID, err := strconv.ParseInt(warehouseIDStr, 10, 64)
+	if err != nil || warehouseID <= 0 {
+		c.JSON(400, gin.H{"error": "invalid warehouse_id"})
+		return
+	}
+	items, err := h.Combo.GetAccessoryInventory(c.Request.Context(), warehouseID)
 	if err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
@@ -695,4 +856,67 @@ func (h *Handlers) AccessoryStockIn(c *gin.Context) {
 		return
 	}
 	c.JSON(200, gin.H{"status": "ok"})
+}
+
+// ─── Warehouse CRUD ─────────────────────────────────────────────────────────
+
+func (h *Handlers) ListWarehouses(c *gin.Context) {
+	warehouses, err := h.Repo.ListWarehouses(c.Request.Context())
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, warehouses)
+}
+
+func (h *Handlers) GetWarehouse(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid warehouse id"})
+		return
+	}
+	w, err := h.Repo.GetWarehouse(c.Request.Context(), id)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, w)
+}
+
+func (h *Handlers) CreateWarehouse(c *gin.Context) {
+	var req domain.CreateWarehouseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	w, err := h.Repo.CreateWarehouse(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	// Initialize inventory records for the new warehouse
+	if err := h.Repo.InitWarehouseInventory(c.Request.Context(), w.ID); err != nil {
+		c.JSON(500, gin.H{"error": "warehouse created but inventory init failed: " + err.Error()})
+		return
+	}
+	c.JSON(201, w)
+}
+
+func (h *Handlers) UpdateWarehouse(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid warehouse id"})
+		return
+	}
+	var req domain.UpdateWarehouseRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(400, gin.H{"error": err.Error()})
+		return
+	}
+	w, err := h.Repo.UpdateWarehouse(c.Request.Context(), id, req)
+	if err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+	c.JSON(200, w)
 }
