@@ -1,6 +1,6 @@
 # WMS Web v2 — Warehouse Management System
 
-Hệ thống quản lý kho hàng (Warehouse Management System) dành cho đơn vị bán lẻ. Hỗ trợ quản lý tồn kho, nhập/xuất hàng với FIFO theo batch (mã thùng), dashboard KPI + biểu đồ, cài đặt ngưỡng cảnh báo, và import dữ liệu từ Excel.
+Hệ thống quản lý kho hàng (Warehouse Management System) dành cho đơn vị bán lẻ. Hỗ trợ **multi-warehouse** (nhiều kho), quản lý tồn kho, nhập/xuất hàng với FIFO theo batch (mã thùng), combo/phụ kiện, dashboard KPI + biểu đồ, cài đặt ngưỡng cảnh báo, và import dữ liệu từ Excel.
 
 ## Kiến trúc tổng quan
 
@@ -8,11 +8,15 @@ Hệ thống quản lý kho hàng (Warehouse Management System) dành cho đơn 
 ┌────────────────────────────────────────────────────────────────────┐
 │  Frontend (React 18 + Vite + TypeScript)                          │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
-│  │ Overview │  │Inventory │  │ Orders   │  │ Settings │         │
-│  │ KPI+Chart│  │GlideGrid │  │ FIFO+    │  │Threshold │         │
-│  │ Alerts   │  │ +Lots    │  │ Create   │  │ Manual   │         │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘         │
-└───────┼──────────────┼─────────────┼─────────────┼───────────────┘
+│  │ Overview │  │Inventory │  │ Orders   │  │  Combo   │  │ Settings │ │
+│  │ KPI+Chart│  │GlideGrid │  │ FIFO+    │  │Warehouse │  │Threshold │ │
+│  │ Alerts   │  │ +Lots    │  │ Create   │  │+Accessory│  │ Manual   │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘ │
+│       │              │             │              │             │       │
+│  ┌────────────────────────────────────────────────────────────────┐     │
+│  │        WarehouseSelector (Zustand store + persist)            │     │
+│  └───────────────────────────┬────────────────────────────────────┘     │
+└──────────────────────────────┼─────────────────────────────────────────┘
         │              │             │             │
         ▼              ▼             ▼             ▼
 ┌────────────────────────────────────────────────────────────────────┐
@@ -28,14 +32,14 @@ Hệ thống quản lý kho hàng (Warehouse Management System) dành cho đơn 
 
 ## Tech Stack
 
-| Layer     | Công nghệ                                             |
-| --------- | ----------------------------------------------------- |
-| Frontend  | React 18, TypeScript, Vite, Glide Data Grid, Recharts |
-| Backend   | Go, Gin, pgx v5                                       |
-| Database  | PostgreSQL 16 (transactional)                         |
-| Analytics | ClickHouse 24 (future)                                |
-| Queue     | Redis 7 (async jobs)                                  |
-| Excel     | excelize v2 (`.xlsx`, date `MM/DD/YYYY`)              |
+| Layer     | Công nghệ                                                      |
+| --------- | -------------------------------------------------------------- |
+| Frontend  | React 18, TypeScript, Vite, Glide Data Grid, Recharts, Zustand |
+| Backend   | Go, Gin, pgx v5                                                |
+| Database  | PostgreSQL 16 (transactional)                                  |
+| Analytics | ClickHouse 24 (future)                                         |
+| Queue     | Redis 7 (async jobs)                                           |
+| Excel     | excelize v2 (`.xlsx`, date `MM/DD/YYYY`)                       |
 
 ## Cấu trúc dự án
 
@@ -45,11 +49,11 @@ VG_wms_main_web/
 │   ├── api/main.go            # HTTP server (Gin)
 │   └── worker/main.go         # Background worker (import, bulk-update)
 ├── internal/
-│   ├── domain/                # Entities, grid, kanban, orders, dashboard types
+│   ├── domain/                # Entities, grid, orders, dashboard, combo types
 │   ├── grid/                  # SQL query builder (filter, sort, paginate)
 │   ├── importer/              # Excel parser (4 loại file)
 │   ├── queue/                 # Redis job queue
-│   ├── repo/                  # PostgreSQL repositories
+│   ├── repo/                  # PostgreSQL repositories (+ warehouse CRUD)
 │   ├── service/               # Business logic layer
 │   └── web/                   # HTTP handlers + routes + static serving
 ├── migrations/
@@ -57,13 +61,17 @@ VG_wms_main_web/
 │   ├── 002_fifo_thresholds.up.sql   # FIFO lots + thresholds
 │   ├── 003_pricing_metrics.up.sql   # Pricing + metrics columns
 │   ├── 004_inventory_grid_view.up.sql # inventory_grid VIEW (join products)
+│   ├── 005_combo_system.up.sql       # Combo/phụ kiện tables
+│   ├── 006_drop_kanban_tables.up.sql  # Drop legacy kanban tables
+│   ├── 007_multi_warehouse.up.sql     # Multi-warehouse: warehouses table + warehouse_id FK
 │   └── *.down.sql                   # Rollback migrations
 ├── web/                       # Frontend React app
 │   ├── src/
 │   │   ├── api/client.ts      # API client (typed fetch)
-│   │   ├── components/        # Sidebar, KpiCards, Charts, InventoryGrid, etc.
-│   │   ├── views/             # Overview, Inventory, Orders, Settings
-│   │   └── types/             # TypeScript types
+│   │   ├── components/        # Sidebar, WarehouseSelector, KpiCards, Charts, InventoryGrid, etc.
+│   │   ├── stores/            # Zustand stores (warehouseStore — persist active warehouse)
+│   │   ├── views/             # Overview, Inventory, Orders, ComboWarehouse, Settings
+│   │   └── types/             # TypeScript types (warehouse, grid, combo, dashboard, inventory)
 │   └── package.json
 ├── docker-compose.yml         # Dev: PostgreSQL, Redis, ClickHouse (migrate via profile)
 ├── docker-compose.prod.yml    # Prod: + API, Worker
@@ -75,6 +83,14 @@ VG_wms_main_web/
 ```
 
 ## Tính năng chính
+
+### Multi-Warehouse (Nhiều kho)
+
+- **WarehouseSelector** trong sidebar — chọn kho hoạt động, persist vào localStorage
+- Tất cả data (inventory, orders, combo, dashboard) scoped theo `warehouse_id`
+- AG Grid tự động reset/purge khi chuyển kho (React key pattern)
+- Warehouse CRUD API: tạo, sửa, liệt kê kho
+- `InitWarehouseInventory` — tự khởi tạo inventory cho warehouse mới từ master products
 
 ### Dashboard (Tổng quan)
 
@@ -100,6 +116,13 @@ VG_wms_main_web/
 - Nhập thresholds thủ công: `min_qty`, `optimal_qty`, `max_age_days`
 - Lưu với lịch sử (versioned, `effective_from/to`)
 - Tra cứu lịch sử theo mã hàng
+
+### Combo / Phụ kiện (ComboWarehouse)
+
+- **Catalog tab** — quản lý BOM (bill of materials) cho combo + semi-finished
+- **Action tab** — tạo combo (ghép), xuất combo, trả combo
+- **Inventory tab** — tồn kho combo theo warehouse
+- **Accessories tab** — quản lý phụ kiện kèm theo combo
 
 ### FIFO theo batch (mã thùng)
 
@@ -170,6 +193,7 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 | Bảng                   | Mục đích                                 |
 | ---------------------- | ---------------------------------------- |
+| `warehouses`           | Danh sách kho (multi-warehouse)          |
 | `products`             | Danh mục sản phẩm (master data)          |
 | `inventory_main`       | Tồn kho hiện tại (số tồn, nhập, xuất)    |
 | `inbound_items`        | Chi tiết phiếu nhập (+ batch_code)       |
@@ -177,12 +201,15 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 | `inventory_lots`       | Lô hàng FIFO (batch_code, qty_remaining) |
 | `inventory_thresholds` | Ngưỡng cảnh báo (versioned + history)    |
 | `inventory_movements`  | Log biến động kho (IN/OUT)               |
-| `kanban_inbound`       | Thẻ Kanban nhập hàng                     |
-| `kanban_outbound`      | Thẻ Kanban xuất hàng                     |
-| `kanban_events`        | Lịch sử chuyển trạng thái Kanban         |
+| `inventory_metrics`    | Metrics tự động tính (LBBQ, tồn bán...)  |
+| `combo_masters`        | Định nghĩa combo (BOM)                   |
+| `combo_transactions`   | Lịch sử ghép/xuất/trả combo              |
+| `accessories`          | Phụ kiện combo                           |
 | `rule_config`          | Cấu hình quy tắc                         |
 | `import_batches`       | Lịch sử import Excel                     |
 | `async_jobs`           | Trạng thái job bất đồng bộ               |
+
+> **Multi-warehouse:** Tất cả business tables (trừ `warehouses`) có `warehouse_id` FK. Mọi query scoped theo warehouse.
 
 ## API Endpoints
 
@@ -220,19 +247,28 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 | GET    | `/api/thresholds` | Lịch sử threshold theo ma_hang |
 | POST   | `/api/thresholds` | Lưu threshold mới (close cũ)   |
 
+### Warehouses
+
+| Method | Path                  | Mô tả                                |
+| ------ | --------------------- | ------------------------------------ |
+| GET    | `/api/warehouses`     | Danh sách tất cả warehouses          |
+| POST   | `/api/warehouses`     | Tạo warehouse mới (+ init inventory) |
+| GET    | `/api/warehouses/:id` | Chi tiết warehouse                   |
+| PATCH  | `/api/warehouses/:id` | Cập nhật warehouse (tên, địa chỉ)    |
+
 ### Kanban & Import
 
-| Method | Path                            | Mô tả                  |
-| ------ | ------------------------------- | ---------------------- |
-| GET    | `/api/kanban/inbound`           | Danh sách thẻ nhập     |
-| POST   | `/api/kanban/inbound`           | Tạo thẻ nhập mới       |
-| POST   | `/api/kanban/inbound/:id/move`  | Chuyển trạng thái nhập |
-| GET    | `/api/kanban/outbound`          | Danh sách thẻ xuất     |
-| POST   | `/api/kanban/outbound`          | Tạo thẻ xuất mới       |
-| POST   | `/api/kanban/outbound/:id/move` | Chuyển trạng thái xuất |
-| POST   | `/api/import/{type}`            | Import Excel (.xlsx)   |
-| GET    | `/api/jobs/:id`                 | Trạng thái job         |
-| POST   | `/api/admin/reset-all`          | Reset toàn bộ DB       |
+| Method | Path                            | Mô tả                             |
+| ------ | ------------------------------- | --------------------------------- |
+| GET    | `/api/kanban/inbound`           | Danh sách thẻ nhập                |
+| POST   | `/api/kanban/inbound`           | Tạo thẻ nhập mới                  |
+| POST   | `/api/kanban/inbound/:id/move`  | Chuyển trạng thái nhập            |
+| GET    | `/api/kanban/outbound`          | Danh sách thẻ xuất                |
+| POST   | `/api/kanban/outbound`          | Tạo thẻ xuất mới                  |
+| POST   | `/api/kanban/outbound/:id/move` | Chuyển trạng thái xuất            |
+| POST   | `/api/import/{type}`            | Import Excel (.xlsx)              |
+| GET    | `/api/jobs/:id`                 | Trạng thái job                    |
+| POST   | `/api/admin/reset-all`          | Reset toàn bộ DB (trừ warehouses) |
 
 ## Biến môi trường
 
@@ -262,7 +298,6 @@ docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 
 ## Giới hạn hiện tại
 
-- Đơn kho (single warehouse), không hỗ trợ multi-warehouse
 - ClickHouse chưa tích hợp (dành cho analytics phase sau)
 - Chưa có authentication/authorization (MVP)
 - ML forecasting deferred

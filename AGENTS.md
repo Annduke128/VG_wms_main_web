@@ -14,9 +14,9 @@ cmd/
 └── worker/main.go       # Background worker (Redis queue consumer)
 
 internal/
-├── domain/              # Entities, types (entities.go, grid.go, kanban.go, orders.go, dashboard.go)
-├── repo/                # PostgreSQL queries (inventory, import, kanban, orders, dashboard, reset, inventory_metrics)
-├── service/             # Business logic (inventory, importer, kanban, orders, dashboard)
+├── domain/              # Entities, types (entities.go, grid.go, orders.go, dashboard.go, combo.go)
+├── repo/                # PostgreSQL queries (inventory, import, orders, dashboard, reset, inventory_metrics, warehouse, combo, accessory)
+├── service/             # Business logic (inventory, importer, orders, dashboard, combo)
 ├── web/                 # HTTP handlers + routes (Gin)
 ├── grid/                # AG Grid server-side builder
 ├── importer/            # Excel import (xlsx.go, template.go, inventory_full.go)
@@ -25,8 +25,9 @@ internal/
 web/                     # React frontend (Vite + TypeScript)
 ├── src/
 │   ├── api/client.ts    # API client (axios)
-│   ├── views/           # Pages: Overview, Inventory, Orders, Settings
-│   ├── components/      # UI components: KanbanBoard, InventoryGrid, ImportPanel, Charts, etc.
+│   ├── views/           # Pages: Overview, Inventory, Orders, ComboWarehouse, Settings
+│   ├── components/      # UI components: WarehouseSelector, InventoryGrid, ImportPanel, Charts, etc.
+│   ├── stores/          # Zustand stores (warehouseStore.ts)
 │   └── types/           # TypeScript types matching Go domain
 ├── vite.config.ts
 └── package.json
@@ -77,11 +78,13 @@ cd web && npx tsc --noEmit && npm run build   # Frontend type-check + build
 
 ## Database
 
-PostgreSQL với 13 business tables. Xem `migrations/` cho schema chi tiết.
+PostgreSQL với 14 business tables. Xem `migrations/` cho schema chi tiết.
 
-**Tables chính:** products, inbound_orders, inbound_items, outbound_orders, outbound_items, inventory, inventory_metrics, kanban_inbound, kanban_outbound, pricing, customers, suppliers, product_categories.
+**Tables chính:** warehouses, products, inbound_orders, inbound_items, outbound_orders, outbound_items, inventory, inventory_metrics, kanban_inbound, kanban_outbound, pricing, customers, suppliers, product_categories.
 
-**Reset:** `POST /api/admin/reset-all` (body: `{"confirm_text": "RESET ALL"}`) — TRUNCATE tất cả tables.
+**Multi-warehouse:** Tất cả business tables có `warehouse_id` FK → `warehouses(id)`. Mọi query đều scoped theo warehouse.
+
+**Reset:** `POST /api/admin/reset-all` (body: `{"confirm_text": "RESET ALL"}`) — TRUNCATE tất cả tables (trừ `warehouses` — infrastructure config).
 
 ## Queue (Redis)
 
@@ -125,23 +128,29 @@ Worker consume từ cả 3 queues, tự động recalc metrics sau mỗi job.
 | GET    | /api/inventory/template       | Download MauTonKho.xlsx              |
 | PUT    | /api/inventory/:id            | Update 1 item                        |
 | POST   | /api/inventory/bulk-update    | Bulk update (queue)                  |
+| GET    | /api/warehouses               | List all warehouses                  |
+| POST   | /api/warehouses               | Create warehouse                     |
+| GET    | /api/warehouses/:id           | Get warehouse by ID                  |
+| PATCH  | /api/warehouses/:id           | Update warehouse                     |
 | GET    | /api/kanban/inbound           | Kanban inbound board                 |
 | POST   | /api/kanban/inbound/:id/move  | Move inbound stage                   |
 | GET    | /api/kanban/outbound          | Kanban outbound board                |
 | POST   | /api/kanban/outbound/:id/move | Move outbound stage                  |
 | GET    | /api/orders                   | Orders list                          |
 | GET    | /api/dashboard                | Dashboard metrics                    |
-| POST   | /api/admin/reset-all          | Reset toàn bộ DB                     |
+| POST   | /api/admin/reset-all          | Reset toàn bộ DB (trừ warehouses)    |
 
 ## Files quan trọng
 
-| File                                | Vai trò                                |
-| ----------------------------------- | -------------------------------------- |
-| cmd/api/main.go                     | API entry point, wiring dependencies   |
-| cmd/worker/main.go                  | Worker entry point, queue consumers    |
-| internal/web/routes.go              | Tất cả route definitions               |
-| internal/web/handlers.go            | Tất cả HTTP handlers                   |
-| internal/repo/inventory_metrics.go  | RecalcMetricsForSKU, GetAllSKUs        |
-| internal/importer/inventory_full.go | Excel parsing logic                    |
-| web/src/api/client.ts               | Frontend API client                    |
-| .gitignore                          | Bao gồm /api, /worker (build binaries) |
+| File                                | Vai trò                                 |
+| ----------------------------------- | --------------------------------------- |
+| cmd/api/main.go                     | API entry point, wiring dependencies    |
+| cmd/worker/main.go                  | Worker entry point, queue consumers     |
+| internal/web/routes.go              | Tất cả route definitions                |
+| internal/web/handlers.go            | Tất cả HTTP handlers                    |
+| internal/repo/inventory_metrics.go  | RecalcMetricsForSKU, GetAllSKUs         |
+| internal/repo/warehouse.go          | Warehouse CRUD + InitWarehouseInventory |
+| internal/importer/inventory_full.go | Excel parsing logic                     |
+| web/src/api/client.ts               | Frontend API client                     |
+| web/src/stores/warehouseStore.ts    | Zustand store (active warehouse)        |
+| .gitignore                          | Bao gồm /api, /worker (build binaries)  |
